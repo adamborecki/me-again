@@ -29,6 +29,8 @@ export class AudioEngine {
     this.mimeType = '';
     this.activeNodes = new Set();  // AudioBufferSourceNodes + noise nodes currently playing
     this.meterRAF = null;
+    this.outputGain = null;        // master make-up gain in front of destination
+    this.outputGainValue = 1.5;    // default boost for quiet acoustic takes
   }
 
   /* -------- AudioContext lifecycle -------- */
@@ -44,7 +46,23 @@ export class AudioEngine {
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume();
     }
+    // Master make-up gain node: ALL output (recorded playback, transition
+    // cue, test tone) routes through this so one slider controls volume.
+    if (!this.outputGain) {
+      this.outputGain = this.ctx.createGain();
+      this.outputGain.gain.value = this.outputGainValue;
+      this.outputGain.connect(this.ctx.destination);
+    }
     return this.ctx;
+  }
+
+  // 0 = silent, 1 = unity (recorded level), >1 = boost. Smoothed to avoid clicks.
+  setOutputGain(value) {
+    this.outputGainValue = value;
+    if (this.outputGain) {
+      const now = this.ctx.currentTime;
+      this.outputGain.gain.setTargetAtTime(value, now, 0.02);
+    }
   }
 
   /* -------- Microphone -------- */
@@ -186,7 +204,7 @@ export class AudioEngine {
   playBuffer(buffer, { onEnded } = {}) {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
-    src.connect(this.ctx.destination);
+    src.connect(this.outputGain);
     src.onended = () => {
       this.activeNodes.delete(src);
       if (onEnded) onEnded();
@@ -236,7 +254,7 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), now + duration * 0.5);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.connect(filter).connect(gain).connect(this.outputGain);
 
     noise.onended = () => {
       this.activeNodes.delete(noise);
@@ -258,7 +276,7 @@ export class AudioEngine {
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(0.25, now + 0.03);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
-    gain.connect(ctx.destination);
+    gain.connect(this.outputGain);
 
     [523.25, 783.99].forEach((freq, i) => {
       const osc = ctx.createOscillator();

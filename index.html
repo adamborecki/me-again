@@ -17,9 +17,6 @@
         <h1 class="title">Me Again</h1>
         <p class="subtitle">a delayed self-duet looper</p>
       </div>
-      <button class="icon-btn" id="settingsToggle" aria-label="Settings" aria-expanded="false">
-        <span class="gear">⚙</span>
-      </button>
     </header>
 
     <!-- ===================== Stage ===================== -->
@@ -62,7 +59,7 @@
     </section>
 
     <!-- ===================== Settings ===================== -->
-    <section class="settings" id="settings" hidden>
+    <section class="settings" id="settings">
       <h2 class="settings-title">Settings</h2>
 
       <!-- Timing mode -->
@@ -75,15 +72,16 @@
 
         <div class="mode-panel" id="manualPanel">
           <div class="presets" id="durationPresets">
+            <button class="chip active" data-sec="4">4s</button>
+            <button class="chip" data-sec="8">8s</button>
             <button class="chip" data-sec="15">15s</button>
             <button class="chip" data-sec="30">30s</button>
             <button class="chip" data-sec="60">60s</button>
-            <button class="chip active" data-sec="90">90s</button>
-            <button class="chip" data-sec="120">120s</button>
+            <button class="chip" data-sec="90">90s</button>
           </div>
           <label class="field">
             <span>Custom seconds</span>
-            <input type="number" id="customSeconds" min="1" max="3600" step="1" value="90" inputmode="numeric" />
+            <input type="number" id="customSeconds" min="1" max="3600" step="1" value="4" inputmode="numeric" />
           </label>
         </div>
 
@@ -100,18 +98,24 @@
         </div>
       </fieldset>
 
-      <!-- Playback repeats -->
+      <!-- Playback -->
       <fieldset class="group">
-        <legend>Playback repeats</legend>
+        <legend>Playback</legend>
+        <label class="field"><span>Repeats per section</span></label>
         <div class="presets" id="repeatPresets">
           <button class="chip active" data-rep="1">1×</button>
           <button class="chip" data-rep="2">2×</button>
           <button class="chip" data-rep="3">3×</button>
         </div>
         <label class="field">
-          <span>Custom</span>
+          <span>Custom repeats</span>
           <input type="number" id="customRepeats" min="1" max="16" value="1" inputmode="numeric" />
         </label>
+        <label class="field">
+          <span>Playback volume — <strong id="playbackVolumeLabel">150%</strong></span>
+          <input type="range" id="playbackVolume" min="0" max="3" step="0.05" value="1.5" />
+        </label>
+        <p class="note">Boosts quiet recordings on playback. Above 100% can clip loud takes. Also check your phone's media volume.</p>
       </fieldset>
 
       <!-- Form -->

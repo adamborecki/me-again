@@ -33,7 +33,9 @@ ui.onStart = async () => {
     await audio.init();
 
     // 2) Ask for the mic the first time; reuse the stream afterwards.
-    machine.start(ui.readConfig());      // -> state: requestingMic
+    const cfg = ui.readConfig();
+    audio.setOutputGain(cfg.playbackVolume);
+    machine.start(cfg);                   // -> state: requestingMic
     if (!micReady) {
       await audio.requestMic();
       micReady = true;
@@ -77,6 +79,9 @@ ui.onPanic = () => {
 
 ui.onClearRecordings = () => machine.clearRecordings();
 
+// Live playback-volume changes (slider) — apply if the context exists yet.
+ui.onPlaybackVolume = (v) => { if (audio.ctx) audio.setOutputGain(v); };
+
 ui.onResetSession = () => {
   machine.resetSession();
   ui.setRunning(false);
@@ -88,6 +93,7 @@ ui.onResetSession = () => {
 ui.onSpeakerTest = async () => {
   try {
     await audio.init();              // resume context on this gesture too
+    audio.setOutputGain(ui.readConfig().playbackVolume);
     audio.playTestTone();
     ui.addLog('Speaker test played');
   } catch (err) {

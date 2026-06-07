@@ -31,6 +31,7 @@ export class UI {
     this.onSpeakerTest = () => {};
     this.onClearRecordings = () => {};
     this.onResetSession = () => {};
+    this.onPlaybackVolume = () => {};
 
     this.running = false;
     this._cacheEls();
@@ -53,10 +54,9 @@ export class UI {
       countdown: this.$('countdown'),
       meterFill: this.$('meterFill'),
       log: this.$('log'),
-      settings: this.$('settings'),
-      settingsToggle: this.$('settingsToggle'),
       recordingsInfo: this.$('recordingsInfo'),
       musicalCalc: this.$('musicalCalc'),
+      playbackVolumeLabel: this.$('playbackVolumeLabel'),
     };
   }
 
@@ -72,12 +72,18 @@ export class UI {
     this.$('clearRecordings').addEventListener('click', () => this.onClearRecordings());
     this.$('resetSession').addEventListener('click', () => this.onResetSession());
 
-    this.els.settingsToggle.addEventListener('click', () => {
-      const hidden = this.els.settings.hasAttribute('hidden');
-      if (hidden) this.els.settings.removeAttribute('hidden');
-      else this.els.settings.setAttribute('hidden', '');
-      this.els.settingsToggle.setAttribute('aria-expanded', String(hidden));
+    // Playback volume: live label + apply to the running engine immediately.
+    const vol = this.$('playbackVolume');
+    vol.addEventListener('input', () => {
+      this._renderVolumeLabel();
+      this.onPlaybackVolume(Number(vol.value));
+      this._persist();
     });
+  }
+
+  _renderVolumeLabel() {
+    const v = Number(this.$('playbackVolume').value);
+    this.els.playbackVolumeLabel.textContent = `${Math.round(v * 100)}%`;
   }
 
   /* ---------------- settings interactions ---------------- */
@@ -130,6 +136,8 @@ export class UI {
     ['form', 'transitionEnabled', 'transitionDuration', 'transitionType',
      'sweepDirection', 'transitionVolume', 'recordDuringTransition', 'strictNoOverlap']
       .forEach((id) => this.$(id).addEventListener('change', () => this._persist()));
+
+    this._renderVolumeLabel();
   }
 
   _activateChip(scope, chip) {
@@ -156,7 +164,7 @@ export class UI {
     const manualMode = document.querySelector('#timingMode .seg-btn.active').dataset.mode === 'manual';
     let durationSeconds;
     if (manualMode) {
-      durationSeconds = Math.max(1, Number(this.$('customSeconds').value) || 90);
+      durationSeconds = Math.max(1, Number(this.$('customSeconds').value) || 4);
     } else {
       durationSeconds = Math.max(1, this.updateMusicalCalc());
     }
@@ -164,6 +172,7 @@ export class UI {
     return {
       durationSeconds,
       repeats: Math.max(1, Number(this.$('customRepeats').value) || 1),
+      playbackVolume: Number(this.$('playbackVolume').value),
       form: this.$('form').value,
       recordDuringTransition: this.$('recordDuringTransition').checked,
       strictNoOverlap: this.$('strictNoOverlap').checked,
@@ -281,6 +290,7 @@ export class UI {
     set('bars', saved._bars);
     set('customSeconds', saved._customSeconds);
     set('customRepeats', saved._customRepeats);
+    set('playbackVolume', saved.playbackVolume);
     set('form', saved.form);
     if (saved.transition) {
       check('transitionEnabled', saved.transition.enabled);
