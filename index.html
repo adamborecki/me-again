@@ -111,11 +111,16 @@
           <span>Custom repeats</span>
           <input type="number" id="customRepeats" min="1" max="16" value="1" inputmode="numeric" />
         </label>
-        <label class="field">
-          <span>Playback volume — <strong id="playbackVolumeLabel">150%</strong></span>
-          <input type="range" id="playbackVolume" min="0" max="3" step="0.05" value="1.5" />
+        <label class="switch">
+          <input type="checkbox" id="autoMaximize" checked />
+          <span>Auto-maximize loudness</span>
         </label>
-        <p class="note">Boosts quiet recordings on playback. Above 100% can clip loud takes. Also check your phone's media volume.</p>
+        <p class="note">Boosts each take to a loud level on save (no clipping). Recommended for the iPhone built-in mic.</p>
+        <label class="field">
+          <span>Playback volume — <strong id="playbackVolumeLabel">100%</strong></span>
+          <input type="range" id="playbackVolume" min="0" max="3" step="0.05" value="1" />
+        </label>
+        <p class="note">Extra trim on top of auto-maximize. Above 100% can clip. Also check your phone's media volume.</p>
       </fieldset>
 
       <!-- Form -->

@@ -81,6 +81,9 @@ paths).
 - **Section length** — manual seconds (presets 15/30/60/90/120 + custom) or
   musical time: `duration = (60 / BPM) × beatsPerBar × bars`.
 - **Playback repeats** — play each section 1–N times before moving on.
+- **Auto-maximize loudness** (on by default) — each take is boosted toward a
+  loud target on save, with a hard no-clip ceiling. Built for the quiet iPhone
+  built-in mic. *Playback volume* is an extra trim on top.
 - **Form** — Free/Infinite, Simple (A B C D), Ternary (A B A), Rondo (A B A C A).
 - **Transitions** — enable/disable, duration, type, sweep direction (up/down),
   volume. White-noise sweep is the implemented cue.

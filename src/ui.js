@@ -134,7 +134,8 @@ export class UI {
 
     // Persist remaining inputs on change
     ['form', 'transitionEnabled', 'transitionDuration', 'transitionType',
-     'sweepDirection', 'transitionVolume', 'recordDuringTransition', 'strictNoOverlap']
+     'sweepDirection', 'transitionVolume', 'recordDuringTransition', 'strictNoOverlap',
+     'autoMaximize']
       .forEach((id) => this.$(id).addEventListener('change', () => this._persist()));
 
     this._renderVolumeLabel();
@@ -173,6 +174,7 @@ export class UI {
       durationSeconds,
       repeats: Math.max(1, Number(this.$('customRepeats').value) || 1),
       playbackVolume: Number(this.$('playbackVolume').value),
+      autoMaximize: this.$('autoMaximize').checked,
       form: this.$('form').value,
       recordDuringTransition: this.$('recordDuringTransition').checked,
       strictNoOverlap: this.$('strictNoOverlap').checked,
@@ -301,6 +303,7 @@ export class UI {
     }
     check('recordDuringTransition', saved.recordDuringTransition);
     check('strictNoOverlap', saved.strictNoOverlap);
+    if (saved.autoMaximize != null) check('autoMaximize', saved.autoMaximize);
 
     // Restore timing mode panel.
     if (saved._mode === 'musical') {

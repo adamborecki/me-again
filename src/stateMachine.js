@@ -218,9 +218,17 @@ export class StateMachine {
     this._setTimer(async () => {
       const buffer = await this.audio.stopRecording();
       if (buffer) {
+        // Auto-maximize: bake a loudness boost into the take so quiet
+        // iPhone-mic recordings play back at a usable level.
+        let boost = '';
+        if (this.config.autoMaximize) {
+          const g = this.audio.maximizeBuffer(buffer);
+          const dB = 20 * Math.log10(g);
+          boost = ` (${dB >= 0 ? '+' : ''}${dB.toFixed(1)} dB)`;
+        }
         this.recordings.set(phase.label, buffer);
         this.onEvent({ type: 'recordings', count: this.recordings.size });
-        this.onEvent({ type: 'log', message: `Saved ${phase.label}` });
+        this.onEvent({ type: 'log', message: `Saved ${phase.label}${boost}` });
       } else {
         this.onEvent({ type: 'log', message: `⚠ ${phase.label} recorded empty` });
       }

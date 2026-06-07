@@ -30,7 +30,7 @@ export class AudioEngine {
     this.activeNodes = new Set();  // AudioBufferSourceNodes + noise nodes currently playing
     this.meterRAF = null;
     this.outputGain = null;        // master make-up gain in front of destination
-    this.outputGainValue = 1.5;    // default boost for quiet acoustic takes
+    this.outputGainValue = 1.0;    // unity by default; auto-maximize handles loudness
   }
 
   /* -------- AudioContext lifecycle -------- */
@@ -195,6 +195,42 @@ export class AudioEngine {
     }
     this.recorder = null;
     this.chunks = [];
+  }
+
+  /* -------- Auto-maximize (loudness normalization) -------- */
+
+  // Boost a freshly recorded buffer toward a loud target WITHOUT clipping.
+  // The iPhone built-in mic records acoustic sources very quietly (peak often
+  // ~0.1), so we compute two candidate gains and take the gentler one:
+  //   gainPeak = ceiling / peak     -> the most we can boost before clipping
+  //   gainRms  = targetRms / rms    -> the gain to reach a loud RMS target
+  // min(gainPeak, gainRms) is loud yet guaranteed clean. The gain is baked
+  // into the samples in place. Returns the linear gain applied (1 = unchanged).
+  maximizeBuffer(buffer, { ceiling = 0.95, targetRms = 0.25, maxGain = 40 } = {}) {
+    const chans = buffer.numberOfChannels;
+    let peak = 0, sumSq = 0, count = 0;
+    for (let c = 0; c < chans; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i];
+        const a = v < 0 ? -v : v;
+        if (a > peak) peak = a;
+        sumSq += v * v;
+      }
+      count += data.length;
+    }
+    if (peak < 1e-4 || count === 0) return 1; // essentially silent -> leave alone
+    const rms = Math.sqrt(sumSq / count);
+    const gainPeak = ceiling / peak;
+    const gainRms = rms > 0 ? targetRms / rms : maxGain;
+    const gain = Math.min(gainPeak, gainRms, maxGain);
+    // Boost-only: never pull a loud take down. Report 1 = left unchanged.
+    if (gain <= 1.0001) return 1;
+    for (let c = 0; c < chans; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i++) data[i] *= gain;
+    }
+    return gain;
   }
 
   /* -------- Playback -------- */
