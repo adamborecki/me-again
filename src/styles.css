@@ -1,0 +1,308 @@
+/* ===========================================================
+   Me Again — styles
+   Dark mode by default, mobile-first, large touch targets.
+   State-driven accent colors are set via [data-state] on .app.
+   =========================================================== */
+
+:root {
+  --bg: #0e0f1a;
+  --bg-elev: #181a2b;
+  --bg-elev-2: #20233a;
+  --text: #eef0ff;
+  --muted: #9aa0c4;
+  --line: #2c2f4a;
+
+  /* state accent (overridden per state below) */
+  --accent: #6c7bff;
+  --accent-soft: rgba(108, 123, 255, 0.18);
+
+  --warm: #ff6b5e;   /* recording */
+  --cool: #4fc3f7;   /* playing   */
+  --bright: #ffd166; /* transition */
+  --danger: #ff4d6d;
+
+  --radius: 16px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---------- Header ---------- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.title {
+  font-size: 28px;
+  margin: 0;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #8a96ff, #57e0c8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.subtitle { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+.icon-btn {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+}
+.icon-btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+/* ---------- Stage ---------- */
+.stage {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 18px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+/* subtle accent glow that shifts with state */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: -40% -40% auto -40%;
+  height: 200px;
+  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+  opacity: 0.8;
+  pointer-events: none;
+  transition: background 0.4s ease;
+}
+
+.stage-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  justify-content: center;
+}
+.section-badge {
+  width: 64px; height: 64px;
+  border-radius: 18px;
+  display: grid; place-items: center;
+  font-size: 30px; font-weight: 700;
+  background: var(--bg-elev-2);
+  border: 2px solid var(--accent);
+  color: var(--text);
+}
+.state-info { text-align: left; }
+.state-label { font-size: 20px; font-weight: 600; }
+.repeat-info { font-size: 13px; color: var(--muted); min-height: 16px; }
+
+.countdown {
+  font-size: 64px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* ---------- Meter ---------- */
+.meter {
+  width: 100%;
+  height: 12px;
+  background: var(--bg-elev-2);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3ddc97, var(--bright), var(--warm));
+  transition: width 0.06s linear;
+}
+.meter-caption { font-size: 11px; color: var(--muted); margin-top: -8px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* ---------- Transport button ---------- */
+.transport {
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 60%),
+    var(--accent);
+  color: #fff;
+  box-shadow: 0 12px 40px var(--accent-soft), inset 0 0 0 2px rgba(255,255,255,0.08);
+  transition: transform 0.08s ease, background 0.3s ease, box-shadow 0.3s ease;
+  margin-top: 4px;
+}
+.transport:active { transform: scale(0.96); }
+.transport-label { font-size: 30px; font-weight: 800; letter-spacing: 0.01em; }
+
+.secondary-controls {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.btn {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 48px;
+}
+.btn:active { transform: scale(0.98); }
+.btn.danger { background: rgba(255,77,109,0.14); border-color: var(--danger); color: #ffd5dd; }
+.btn.ghost { background: transparent; }
+
+.hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; text-align: center; }
+
+/* ---------- Log ---------- */
+.log-panel {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.log-header {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted); margin-bottom: 8px;
+}
+.log {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 150px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px;
+}
+.log li {
+  display: flex; gap: 10px;
+  color: var(--text);
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.log li:last-child { border-bottom: none; }
+.log .ts { color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.log:empty::after { content: "Nothing yet — tap Start."; color: var(--muted); font-style: italic; }
+
+/* ---------- Settings ---------- */
+.settings {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.settings-title { margin: 0 0 12px; font-size: 18px; }
+
+.group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 0 0 14px;
+}
+.group legend { padding: 0 8px; color: var(--accent); font-weight: 700; font-size: 14px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.field span { font-weight: 500; }
+input[type="number"], .select, input[type="text"] {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 12px;
+  font-size: 16px; /* >=16px stops iOS zoom-on-focus */
+  width: 100%;
+}
+input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
+
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.grid-3 .field { margin-top: 0; }
+
+.calc { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+.calc strong { color: var(--text); }
+
+.seg {
+  display: flex; gap: 6px;
+  background: var(--bg-elev-2);
+  padding: 4px; border-radius: 12px;
+}
+.seg-btn {
+  flex: 1; padding: 10px; border: none; border-radius: 9px;
+  background: transparent; color: var(--muted); font-weight: 600; font-size: 15px; cursor: pointer;
+}
+.seg-btn.active { background: var(--accent); color: #fff; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 10px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg-elev-2);
+  color: var(--text); font-weight: 600; cursor: pointer; font-size: 15px;
+  min-height: 44px;
+}
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.switch { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 15px; cursor: pointer; }
+.switch input { width: 26px; height: 26px; accent-color: var(--accent); }
+
+.note { font-size: 12px; color: var(--muted); margin: 10px 0 0; line-height: 1.4; }
+.row { display: flex; gap: 10px; }
+
+.mode-panel { margin-top: 12px; }
+
+.footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 0; }
+
+/* ===========================================================
+   State-driven theming. JS sets data-state on .app.
+   =========================================================== */
+.app[data-state="recording"]  { --accent: var(--warm);   --accent-soft: rgba(255,107,94,0.22); }
+.app[data-state="playing"]    { --accent: var(--cool);   --accent-soft: rgba(79,195,247,0.22); }
+.app[data-state="transition"] { --accent: var(--bright); --accent-soft: rgba(255,209,102,0.25); }
+.app[data-state="requestingMic"] { --accent: #b39ddb; --accent-soft: rgba(179,157,219,0.22); }
+.app[data-state="stopped"], .app[data-state="error"] { --accent: #6b7194; --accent-soft: rgba(107,113,148,0.18); }
+
+/* recording pulse on the badge + button */
+.app[data-state="recording"] .section-badge,
+.app[data-state="recording"] .transport {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 12px 40px var(--accent-soft), inset 0 0 0 2px rgba(255,255,255,0.08); }
+  50%      { box-shadow: 0 12px 60px var(--accent), inset 0 0 0 2px rgba(255,255,255,0.18); }
+}
+
+/* transition shimmer */
+.app[data-state="transition"] .stage::before { animation: shimmer 1s linear infinite; }
+@keyframes shimmer { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, .stage::before { animation: none !important; transition: none !important; }
+}
