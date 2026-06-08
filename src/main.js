@@ -70,6 +70,18 @@ ui.onStop = () => {
   ui.setRunning(false);
 };
 
+// Stop the session AND fully release the microphone, so the browser/OS mic
+// indicator turns off. The next Start will re-acquire the mic (no re-prompt on
+// browsers that remember the permission).
+ui.onStopMic = () => {
+  machine.stop();
+  audio.cleanup({ releaseMic: true });
+  micReady = false;
+  ui.setRunning(false);
+  ui.setMeter(0);
+  ui.addLog('Microphone released');
+};
+
 ui.onPanic = () => {
   machine.panic();
   ui.setRunning(false);

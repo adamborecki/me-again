@@ -45,6 +45,7 @@
       </button>
 
       <div class="secondary-controls">
+        <button class="btn" id="stopMic">Stop Mic</button>
         <button class="btn danger" id="panicStop">Panic Stop</button>
         <button class="btn ghost" id="speakerTest">Test Speaker</button>
       </div>
@@ -140,45 +141,17 @@
         <legend>Transitions</legend>
         <label class="switch">
           <input type="checkbox" id="transitionEnabled" checked />
-          <span>Transition enabled</span>
+          <span>Transition whoosh enabled</span>
         </label>
         <label class="field">
-          <span>Transition duration (s)</span>
-          <input type="number" id="transitionDuration" min="0.5" max="20" step="0.5" value="5" inputmode="decimal" />
+          <span>Transition length (s)</span>
+          <input type="number" id="transitionDuration" min="0.5" max="20" step="0.5" value="2" inputmode="decimal" />
         </label>
-        <label class="field">
-          <span>Type</span>
-          <select id="transitionType" class="select">
-            <option value="sweep" selected>White-noise filter sweep</option>
-            <option value="reverse">Reverse intro (coming soon)</option>
-            <option value="both">Both (coming soon)</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Sweep direction</span>
-          <select id="sweepDirection" class="select">
-            <option value="up" selected>Up</option>
-            <option value="down">Down</option>
-          </select>
-        </label>
+        <p class="note">A white-noise sweep peaks at each section boundary: it rises over the last few seconds of one section and falls into the first few of the next. It overlaps recording and playback by design.</p>
         <label class="field">
           <span>Transition volume</span>
           <input type="range" id="transitionVolume" min="0" max="1" step="0.01" value="0.5" />
         </label>
-      </fieldset>
-
-      <!-- Overlap behavior -->
-      <fieldset class="group">
-        <legend>Overlap behavior</legend>
-        <label class="switch">
-          <input type="checkbox" id="recordDuringTransition" checked />
-          <span>Record during transition</span>
-        </label>
-        <label class="switch">
-          <input type="checkbox" id="strictNoOverlap" />
-          <span>Strict no-overlap mode</span>
-        </label>
-        <p class="note">Strict mode never records while any audio is playing (overrides the option above).</p>
       </fieldset>
 
       <!-- Session -->

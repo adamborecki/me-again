@@ -7,26 +7,28 @@
 
    Phase model
    -----------
-   The session is a sequence of "steps" defined by the chosen Form.
-   Each step has a section label (A, B, C, …). For each step we build
-   a small list of phases and run them in order:
+   The session is a flat sequence of segments, each either a [record] or a
+   [playback], defined by the chosen Form. There are no standalone transition
+   phases — every segment runs for its natural length:
 
      - NEW section (never recorded):
-         [record]            (transition is overlapped onto the start,
-                              unless strict-no-overlap, where it becomes
-                              a separate leading [transition] phase)
-         [transition]        (cue before playback)
-         [playback]          (repeated `repeats` times internally)
+         [record]      (durationSeconds)
+         [playback]    (buffer.duration × repeats)
 
      - REUSED section (already recorded, e.g. A in ternary):
-         [transition]
          [playback]
 
-   The very first record has no leading/overlapping transition (per spec:
-   tap Start -> record A immediately).
+   Transitions are a "whoosh" laid ON TOP of the segments at their boundaries.
+   For a transition length T, the whoosh rises for T seconds before a boundary
+   (over the tail of the outgoing segment) and falls for T seconds after it
+   (over the head of the incoming segment), peaking exactly at the boundary.
+   The very first segment additionally gets the fall-half at the very start.
+   Each segment schedules the whoosh for the boundary at its END, so every
+   boundary is covered exactly once. These are scheduled on the audio clock
+   (see AudioEngine.scheduleSweep), independent of the segment timers.
 
-   States exposed to the UI: idle, requestingMic, recording, transition,
-   playing, stopped, error.
+   States exposed to the UI: idle, requestingMic, recording, playing,
+   stopped, error.
    =========================================================== */
 
 const FORMS = {
@@ -58,7 +60,7 @@ export class StateMachine {
     this.stepIndex = 0;          // index into the form pattern (wraps)
     this.phaseQueue = [];        // pending phases for the current step
     this.currentPhase = null;
-    this.isFirstPhase = true;
+    this.firstSegment = true;    // first segment gets the leading "fall" whoosh
     this.timer = null;           // single pending setTimeout id
     this.tick = null;            // countdown interval id
     this.deadline = 0;           // performance.now() when current phase ends
@@ -72,7 +74,7 @@ export class StateMachine {
     this.config = config;
     this.running = true;
     this.stepIndex = 0;
-    this.isFirstPhase = true;
+    this.firstSegment = true;
     this.phaseQueue = [];
     this._setState('requestingMic');
     this.onEvent({ type: 'log', message: 'Session started' });
@@ -135,39 +137,16 @@ export class StateMachine {
     return pattern[idx % pattern.length];
   }
 
-  // Build the phases for the upcoming step and push them onto the queue.
+  // Build the segments for the upcoming step and push them onto the queue.
+  // New sections record then play back; reused sections just replay the take.
+  // (Boundary whooshes are scheduled per-segment in _runRecord/_runPlayback.)
   _enqueueStep() {
     const label = this._labelForStep(this.stepIndex);
     const isNew = !this.recordings.has(label);
-    const t = this.config.transition;
-    const transitionsOn = t.enabled;
-    const strict = this.config.strictNoOverlap;
-    // Overlap allowed only when: transitions on, record-during-transition on,
-    // and strict mode off.
-    const overlap = transitionsOn && this.config.recordDuringTransition && !strict;
 
     const phases = [];
-
-    if (isNew) {
-      if (this.isFirstPhase) {
-        // First record: straight into recording, no leading transition.
-        phases.push({ type: 'record', label, overlapTransition: false });
-      } else if (overlap) {
-        // Transition sound is layered onto the first seconds of recording.
-        phases.push({ type: 'record', label, overlapTransition: true });
-      } else {
-        // Strict / no-overlap: transition plays first, then dry recording.
-        if (transitionsOn) phases.push({ type: 'transition', label });
-        phases.push({ type: 'record', label, overlapTransition: false });
-      }
-      // Cue before playback, then playback.
-      if (transitionsOn) phases.push({ type: 'transition', label });
-      phases.push({ type: 'playback', label });
-    } else {
-      // Reused section: just cue + replay the saved take.
-      if (transitionsOn && !this.isFirstPhase) phases.push({ type: 'transition', label });
-      phases.push({ type: 'playback', label });
-    }
+    if (isNew) phases.push({ type: 'record', label });
+    phases.push({ type: 'playback', label });
 
     this.phaseQueue = phases;
     this.onEvent({ type: 'section', label });
@@ -181,8 +160,6 @@ export class StateMachine {
 
     if (this.phaseQueue.length === 0) {
       this._enqueueStep();
-      // After enqueuing a step we are no longer on the very first phase.
-      this.isFirstPhase = false;
     }
 
     const phase = this.phaseQueue.shift();
@@ -190,7 +167,6 @@ export class StateMachine {
 
     switch (phase.type) {
       case 'record':      return this._runRecord(phase);
-      case 'transition':  return this._runTransition(phase);
       case 'playback':    return this._runPlayback(phase);
       default:            return this._stepDone();
     }
@@ -209,10 +185,8 @@ export class StateMachine {
 
     this.audio.startRecording();
 
-    // Overlap: play the transition cue on top of the first seconds.
-    if (phase.overlapTransition) {
-      this._playTransitionSound(); // fire-and-forget; self-stops
-    }
+    // Lay the boundary whoosh(es) over this segment (peaking at its end).
+    this._armSweeps(dur);
 
     this._startCountdown(dur);
     this._setTimer(async () => {
@@ -236,16 +210,6 @@ export class StateMachine {
     }, dur * 1000);
   }
 
-  _runTransition(phase) {
-    const dur = this.config.transition.duration;
-    this._setState('transition', { label: phase.label });
-    this.onEvent({ type: 'log', message: 'Transition…' });
-    this._startCountdown(dur);
-    this._playTransitionSound();
-    // Drive advance by timer (transition node self-stops too).
-    this._setTimer(() => this._afterPhase(), dur * 1000);
-  }
-
   _runPlayback(phase) {
     const buffer = this.recordings.get(phase.label);
     if (!buffer) {
@@ -255,6 +219,9 @@ export class StateMachine {
     }
     const repeats = this.config.repeats;
     let n = 0;
+
+    // Whoosh peaks at the very end of the whole (possibly repeated) playback.
+    this._armSweeps(buffer.duration * repeats);
 
     const playOnce = () => {
       if (!this.running) return;
@@ -282,14 +249,26 @@ export class StateMachine {
     else this._stepDone();
   }
 
-  _playTransitionSound() {
+  // Schedule the whoosh(es) for a segment of length `segmentSeconds`:
+  //   - the very first segment also gets the leading "fall" half at the start
+  //   - every segment gets the whoosh that PEAKS at its end (rise over this
+  //     segment's tail, fall over the next segment's head)
+  _armSweeps(segmentSeconds) {
     const t = this.config.transition;
+    const wasFirst = this.firstSegment;
+    this.firstSegment = false;
     if (!t.enabled) return;
-    // Reverse / both types are stubbed -> fall back to the sweep cue so the
-    // app stays fully functional. (See README "Known limitations".)
-    this.audio.playTransition({
-      duration: t.duration,
-      direction: t.direction,
+
+    const now = this.audio.ctx.currentTime;
+    if (wasFirst) {
+      // Intro: peak at the very start, fall into the head of section A.
+      this.audio.scheduleSweep({ peakTime: now, rise: 0, fall: t.duration, volume: t.volume });
+    }
+    // Boundary at the end of this segment.
+    this.audio.scheduleSweep({
+      peakTime: now + segmentSeconds,
+      rise: t.duration,
+      fall: t.duration,
       volume: t.volume,
     });
   }

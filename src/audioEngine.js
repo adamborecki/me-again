@@ -29,8 +29,11 @@ export class AudioEngine {
     this.mimeType = '';
     this.activeNodes = new Set();  // AudioBufferSourceNodes + noise nodes currently playing
     this.meterRAF = null;
-    this.outputGain = null;        // master make-up gain in front of destination
+    this.outputGain = null;        // master make-up gain in front of the drive/limiter
     this.outputGainValue = 1.0;    // unity by default; auto-maximize handles loudness
+    this.driveGain = null;         // fixed extra boost to run the output hot
+    this.driveValue = 2.8;         // ≈ +9 dB; the limiter below catches the peaks
+    this.limiter = null;           // brick-wall-ish limiter so the drive never clips
   }
 
   /* -------- AudioContext lifecycle -------- */
@@ -46,12 +49,31 @@ export class AudioEngine {
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume();
     }
-    // Master make-up gain node: ALL output (recorded playback, transition
-    // cue, test tone) routes through this so one slider controls volume.
+    // Output chain (all sound — recorded playback, sweeps, test tone — runs
+    // through it):
+    //
+    //   sources -> outputGain -> driveGain -> limiter -> destination
+    //
+    // outputGain is the volume slider. driveGain pushes everything hot, and
+    // the limiter is a near-brick-wall so that drive never actually clips.
     if (!this.outputGain) {
       this.outputGain = this.ctx.createGain();
       this.outputGain.gain.value = this.outputGainValue;
-      this.outputGain.connect(this.ctx.destination);
+
+      this.driveGain = this.ctx.createGain();
+      this.driveGain.gain.value = this.driveValue;
+
+      // DynamicsCompressor with a hard knee + high ratio behaves as a limiter.
+      this.limiter = this.ctx.createDynamicsCompressor();
+      this.limiter.threshold.value = -2;   // clamp anything above ≈ -2 dBFS
+      this.limiter.knee.value = 0;         // hard knee -> limiter, not soft comp
+      this.limiter.ratio.value = 20;       // brick-wall-ish
+      this.limiter.attack.value = 0.002;   // catch transients fast
+      this.limiter.release.value = 0.18;
+
+      this.outputGain.connect(this.driveGain);
+      this.driveGain.connect(this.limiter);
+      this.limiter.connect(this.ctx.destination);
     }
     return this.ctx;
   }
@@ -206,7 +228,7 @@ export class AudioEngine {
   //   gainRms  = targetRms / rms    -> the gain to reach a loud RMS target
   // min(gainPeak, gainRms) is loud yet guaranteed clean. The gain is baked
   // into the samples in place. Returns the linear gain applied (1 = unchanged).
-  maximizeBuffer(buffer, { ceiling = 0.95, targetRms = 0.25, maxGain = 40 } = {}) {
+  maximizeBuffer(buffer, { ceiling = 0.97, targetRms = 0.33, maxGain = 40 } = {}) {
     const chans = buffer.numberOfChannels;
     let peak = 0, sumSq = 0, count = 0;
     for (let c = 0; c < chans; c++) {
@@ -250,55 +272,58 @@ export class AudioEngine {
     return src;
   }
 
-  /* -------- White-noise filter sweep transition -------- */
+  /* -------- White-noise filter-sweep "whoosh" -------- */
 
-  // Generates band-passy white noise and sweeps the filter cutoff across
-  // `duration` seconds with a fade-in/peak/fade-out gain envelope.
-  // Returns a handle; auto-stops after duration. onEnded fires at the end.
-  playTransition({ duration = 5, direction = 'up', volume = 0.5, onEnded } = {}) {
+  // Schedules a single whoosh that PEAKS at `peakTime` (an AudioContext time).
+  // It rises for `rise` seconds before the peak and falls for `fall` seconds
+  // after it, so a boundary sweep straddles the moment one section ends and the
+  // next begins: the rise plays over the tail of the outgoing section and the
+  // fall over the head of the incoming one. Either side may be 0 (the very
+  // first sweep of a session has no rise — just the fall into section A).
+  //
+  // Both the filter cutoff and the gain follow the same rise/peak/fall shape,
+  // and the whole thing is scheduled on the audio clock so it stays
+  // sample-accurate regardless of JS timer jitter. Returns the noise node.
+  scheduleSweep({ peakTime, rise = 0, fall = 2, volume = 0.5 } = {}) {
     const ctx = this.ctx;
-    const now = ctx.currentTime;
+    let start = peakTime - rise;
+    const end = peakTime + fall;
+    // Never schedule in the past (can happen if a section is shorter than the
+    // transition length); just clamp the start to "now".
+    if (start < ctx.currentTime) start = ctx.currentTime;
+    if (end <= start) return null;
 
-    // 1) White noise buffer (1s, looped).
+    // White noise (1s buffer, looped for the whole whoosh).
     const noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const ch = noiseBuf.getChannelData(0);
     for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
-
     const noise = ctx.createBufferSource();
     noise.buffer = noiseBuf;
     noise.loop = true;
 
-    // 2) Band-pass filter we sweep.
+    // Band-pass filter swept lo -> hi on the way up, hi -> lo on the way down.
+    const lo = 200;
+    const hi = 8000;
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.Q.value = 1.2;
+    filter.frequency.setValueAtTime(rise > 0 ? lo : hi, start);
+    if (rise > 0) filter.frequency.exponentialRampToValueAtTime(hi, peakTime);
+    if (fall > 0) filter.frequency.exponentialRampToValueAtTime(lo, end);
 
-    const lo = 200;
-    const hi = 8000;
-    if (direction === 'down') {
-      filter.frequency.setValueAtTime(hi, now);
-      filter.frequency.exponentialRampToValueAtTime(lo, now + duration);
-    } else {
-      filter.frequency.setValueAtTime(lo, now);
-      filter.frequency.exponentialRampToValueAtTime(hi, now + duration);
-    }
-
-    // 3) Gain envelope: fade in, peak mid, fade out — reads as a "whoosh" cue.
+    // Matching gain envelope: silence -> peak at the boundary -> silence.
     const gain = ctx.createGain();
-    const peak = Math.max(0, Math.min(1, volume));
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), now + duration * 0.5);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    const peak = Math.max(0.0001, Math.min(1, volume));
+    gain.gain.setValueAtTime(0.0001, start);
+    if (rise > 0) gain.gain.exponentialRampToValueAtTime(peak, peakTime);
+    else gain.gain.setValueAtTime(peak, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
     noise.connect(filter).connect(gain).connect(this.outputGain);
-
-    noise.onended = () => {
-      this.activeNodes.delete(noise);
-      if (onEnded) onEnded();
-    };
+    noise.onended = () => this.activeNodes.delete(noise);
     this.activeNodes.add(noise);
-    noise.start(now);
-    noise.stop(now + duration);
+    noise.start(start);
+    noise.stop(end);
     return noise;
   }
 

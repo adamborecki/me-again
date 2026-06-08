@@ -27,6 +27,7 @@ export class UI {
     // hooks (assigned by main.js)
     this.onStart = () => {};
     this.onStop = () => {};
+    this.onStopMic = () => {};
     this.onPanic = () => {};
     this.onSpeakerTest = () => {};
     this.onClearRecordings = () => {};
@@ -46,6 +47,7 @@ export class UI {
     this.els = {
       startStop: this.$('startStop'),
       startStopLabel: this.$('startStopLabel'),
+      stopMic: this.$('stopMic'),
       panicStop: this.$('panicStop'),
       speakerTest: this.$('speakerTest'),
       stateLabel: this.$('stateLabel'),
@@ -67,6 +69,7 @@ export class UI {
       if (this.running) this.onStop();
       else this.onStart();
     });
+    this.els.stopMic.addEventListener('click', () => this.onStopMic());
     this.els.panicStop.addEventListener('click', () => this.onPanic());
     this.els.speakerTest.addEventListener('click', () => this.onSpeakerTest());
     this.$('clearRecordings').addEventListener('click', () => this.onClearRecordings());
@@ -133,8 +136,7 @@ export class UI {
     });
 
     // Persist remaining inputs on change
-    ['form', 'transitionEnabled', 'transitionDuration', 'transitionType',
-     'sweepDirection', 'transitionVolume', 'recordDuringTransition', 'strictNoOverlap',
+    ['form', 'transitionEnabled', 'transitionDuration', 'transitionVolume',
      'autoMaximize']
       .forEach((id) => this.$(id).addEventListener('change', () => this._persist()));
 
@@ -176,13 +178,9 @@ export class UI {
       playbackVolume: Number(this.$('playbackVolume').value),
       autoMaximize: this.$('autoMaximize').checked,
       form: this.$('form').value,
-      recordDuringTransition: this.$('recordDuringTransition').checked,
-      strictNoOverlap: this.$('strictNoOverlap').checked,
       transition: {
         enabled: this.$('transitionEnabled').checked,
-        duration: Math.max(0.5, Number(this.$('transitionDuration').value) || 5),
-        type: this.$('transitionType').value,
-        direction: this.$('sweepDirection').value,
+        duration: Math.max(0.5, Number(this.$('transitionDuration').value) || 2),
         volume: Number(this.$('transitionVolume').value),
       },
     };
@@ -297,12 +295,8 @@ export class UI {
     if (saved.transition) {
       check('transitionEnabled', saved.transition.enabled);
       set('transitionDuration', saved.transition.duration);
-      set('transitionType', saved.transition.type);
-      set('sweepDirection', saved.transition.direction);
       set('transitionVolume', saved.transition.volume);
     }
-    check('recordDuringTransition', saved.recordDuringTransition);
-    check('strictNoOverlap', saved.strictNoOverlap);
     if (saved.autoMaximize != null) check('autoMaximize', saved.autoMaximize);
 
     // Restore timing mode panel.
