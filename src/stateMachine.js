@@ -25,7 +25,7 @@
    The very first segment additionally gets the fall-half at the very start.
    Each segment schedules the whoosh for the boundary at its END, so every
    boundary is covered exactly once. These are scheduled on the audio clock
-   (see AudioEngine.scheduleSweep), independent of the segment timers.
+   (see AudioEngine.scheduleTransition), independent of the segment timers.
 
    States exposed to the UI: idle, requestingMic, recording, playing,
    stopped, error.
@@ -57,6 +57,7 @@ export class StateMachine {
     this.running = false;
     this.config = null;
     this.recordings = new Map(); // label -> AudioBuffer
+    this.lastTake = null;        // most recently saved take (for the reverse cue)
     this.stepIndex = 0;          // index into the form pattern (wraps)
     this.phaseQueue = [];        // pending phases for the current step
     this.currentPhase = null;
@@ -111,6 +112,7 @@ export class StateMachine {
 
   clearRecordings() {
     this.recordings.clear();
+    this.lastTake = null;
     this.onEvent({ type: 'recordings', count: 0 });
     this.onEvent({ type: 'log', message: 'Recordings cleared' });
   }
@@ -186,7 +188,7 @@ export class StateMachine {
     this.audio.startRecording();
 
     // Lay the boundary whoosh(es) over this segment (peaking at its end).
-    this._armSweeps(dur);
+    this._armSweeps(dur, this.lastTake);
 
     this._startCountdown(dur);
     this._setTimer(async () => {
@@ -201,6 +203,7 @@ export class StateMachine {
           boost = ` (${dB >= 0 ? '+' : ''}${dB.toFixed(1)} dB)`;
         }
         this.recordings.set(phase.label, buffer);
+        this.lastTake = buffer;
         this.onEvent({ type: 'recordings', count: this.recordings.size });
         this.onEvent({ type: 'log', message: `Saved ${phase.label}${boost}` });
       } else {
@@ -221,7 +224,7 @@ export class StateMachine {
     let n = 0;
 
     // Whoosh peaks at the very end of the whole (possibly repeated) playback.
-    this._armSweeps(buffer.duration * repeats);
+    this._armSweeps(buffer.duration * repeats, buffer);
 
     const playOnce = () => {
       if (!this.running) return;
@@ -249,27 +252,31 @@ export class StateMachine {
     else this._stepDone();
   }
 
-  // Schedule the whoosh(es) for a segment of length `segmentSeconds`:
+  // Schedule the cue(s) for a segment of length `segmentSeconds`:
   //   - the very first segment also gets the leading "fall" half at the start
-  //   - every segment gets the whoosh that PEAKS at its end (rise over this
+  //   - every segment gets the cue that PEAKS at its end (rise over this
   //     segment's tail, fall over the next segment's head)
-  _armSweeps(segmentSeconds) {
+  // `take` is the audio the reverse cue plays backwards: the take being
+  // played back, or while recording, the previous take.
+  _armSweeps(segmentSeconds, take) {
     const t = this.config.transition;
     const wasFirst = this.firstSegment;
     this.firstSegment = false;
     if (!t.enabled) return;
 
     const now = this.audio.ctx.currentTime;
+    const base = { type: t.type, volume: t.volume };
     if (wasFirst) {
       // Intro: peak at the very start, fall into the head of section A.
-      this.audio.scheduleSweep({ peakTime: now, rise: 0, fall: t.duration, volume: t.volume });
+      this.audio.scheduleTransition({ ...base, peakTime: now, rise: 0, fall: t.duration });
     }
     // Boundary at the end of this segment.
-    this.audio.scheduleSweep({
+    this.audio.scheduleTransition({
+      ...base,
+      take,
       peakTime: now + segmentSeconds,
       rise: t.duration,
       fall: t.duration,
-      volume: t.volume,
     });
   }
 

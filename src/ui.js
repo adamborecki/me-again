@@ -19,6 +19,9 @@ const STATE_LABELS = {
   error: 'Error',
 };
 
+// Bump when a saved setting's meaning changes (v2: new transition engine).
+const SETTINGS_VERSION = 2;
+
 export class UI {
   constructor() {
     this.$ = (id) => document.getElementById(id);
@@ -33,6 +36,7 @@ export class UI {
     this.onClearRecordings = () => {};
     this.onResetSession = () => {};
     this.onPlaybackVolume = () => {};
+    this.onPreviewTransition = () => {};
 
     this.running = false;
     this._cacheEls();
@@ -59,6 +63,7 @@ export class UI {
       recordingsInfo: this.$('recordingsInfo'),
       musicalCalc: this.$('musicalCalc'),
       playbackVolumeLabel: this.$('playbackVolumeLabel'),
+      transitionVolumeLabel: this.$('transitionVolumeLabel'),
     };
   }
 
@@ -74,6 +79,7 @@ export class UI {
     this.els.speakerTest.addEventListener('click', () => this.onSpeakerTest());
     this.$('clearRecordings').addEventListener('click', () => this.onClearRecordings());
     this.$('resetSession').addEventListener('click', () => this.onResetSession());
+    this.$('previewTransition').addEventListener('click', () => this.onPreviewTransition());
 
     // Playback volume: live label + apply to the running engine immediately.
     const vol = this.$('playbackVolume');
@@ -87,6 +93,8 @@ export class UI {
   _renderVolumeLabel() {
     const v = Number(this.$('playbackVolume').value);
     this.els.playbackVolumeLabel.textContent = `${Math.round(v * 100)}%`;
+    const t = Number(this.$('transitionVolume').value);
+    this.els.transitionVolumeLabel.textContent = `${Math.round(t * 100)}%`;
   }
 
   /* ---------------- settings interactions ---------------- */
@@ -136,9 +144,10 @@ export class UI {
     });
 
     // Persist remaining inputs on change
-    ['form', 'transitionEnabled', 'transitionDuration', 'transitionVolume',
+    ['form', 'transitionEnabled', 'transitionType', 'transitionDuration', 'transitionVolume',
      'autoMaximize']
       .forEach((id) => this.$(id).addEventListener('change', () => this._persist()));
+    this.$('transitionVolume').addEventListener('input', () => this._renderVolumeLabel());
 
     this._renderVolumeLabel();
   }
@@ -180,6 +189,7 @@ export class UI {
       form: this.$('form').value,
       transition: {
         enabled: this.$('transitionEnabled').checked,
+        type: this.$('transitionType').value,
         duration: Math.max(0.5, Number(this.$('transitionDuration').value) || 2),
         volume: Number(this.$('transitionVolume').value),
       },
@@ -266,6 +276,7 @@ export class UI {
       const mode = document.querySelector('#timingMode .seg-btn.active').dataset.mode;
       localStorage.setItem('meAgain.settings', JSON.stringify({
         ...cfg,
+        _v: SETTINGS_VERSION,
         _mode: mode,
         _bpm: this.$('bpm').value,
         _beats: this.$('beatsPerBar').value,
@@ -295,9 +306,15 @@ export class UI {
     if (saved.transition) {
       check('transitionEnabled', saved.transition.enabled);
       set('transitionDuration', saved.transition.duration);
-      set('transitionVolume', saved.transition.volume);
+      // v1 volumes were for the old (much louder) white-noise whoosh; start
+      // those users on the new default instead of carrying the level over.
+      if (saved._v >= 2) {
+        set('transitionVolume', saved.transition.volume);
+        set('transitionType', saved.transition.type);
+      }
     }
     if (saved.autoMaximize != null) check('autoMaximize', saved.autoMaximize);
+    this._renderVolumeLabel();
 
     // Restore timing mode panel.
     if (saved._mode === 'musical') {

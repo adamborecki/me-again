@@ -113,6 +113,21 @@ ui.onSpeakerTest = async () => {
   }
 };
 
+/* ---------------- Transition preview ---------------- */
+
+ui.onPreviewTransition = async () => {
+  try {
+    await audio.init();
+    const { transition: t } = ui.readConfig();
+    const take = machine.lastTake;
+    audio.previewTransition({ type: t.type, duration: t.duration, volume: t.volume, take });
+    const note = t.type === 'reverse' && !take ? ' (no take yet, so a plain swell)' : '';
+    ui.addLog(`Previewing ${t.type} cue${note}`);
+  } catch (err) {
+    ui.showError(err.message || 'Could not play the preview.');
+  }
+};
+
 /* ---------------- Safety: stop audio if tab is hidden ---------------- */
 // iOS can suspend audio when backgrounded; make the stop explicit so the
 // app doesn't come back in a half-running state.

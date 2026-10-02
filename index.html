@@ -141,17 +141,28 @@
         <legend>Transitions</legend>
         <label class="switch">
           <input type="checkbox" id="transitionEnabled" checked />
-          <span>Transition whoosh enabled</span>
+          <span>Transition cue enabled</span>
+        </label>
+        <label class="field">
+          <span>Sound</span>
+          <select id="transitionType" class="select">
+            <option value="swell" selected>Soft swell (airy noise)</option>
+            <option value="reverse">Reverse swell (your last take, backwards)</option>
+            <option value="chime">Chime (bell, backwards then forwards)</option>
+          </select>
         </label>
         <label class="field">
           <span>Transition length (s)</span>
           <input type="number" id="transitionDuration" min="0.5" max="20" step="0.5" value="2" inputmode="decimal" />
         </label>
-        <p class="note">A white-noise sweep peaks at each section boundary: it rises over the last few seconds of one section and falls into the first few of the next. It overlaps recording and playback by design.</p>
         <label class="field">
-          <span>Transition volume</span>
-          <input type="range" id="transitionVolume" min="0" max="1" step="0.01" value="0.5" />
+          <span>Transition volume — <strong id="transitionVolumeLabel">45%</strong></span>
+          <input type="range" id="transitionVolume" min="0" max="1" step="0.01" value="0.45" />
         </label>
+        <div class="row">
+          <button class="btn ghost" id="previewTransition">▶ Preview cue</button>
+        </div>
+        <p class="note">The cue peaks at each section boundary: it rises over the last few seconds of one section and falls into the first few of the next, with a soft reverb tail. It overlaps recording and playback by design, so use headphones for clean takes. Reverse swell uses a plain swell until you've recorded something.</p>
       </fieldset>
 
       <!-- Session -->

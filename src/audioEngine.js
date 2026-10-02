@@ -9,14 +9,16 @@
    - Record mic input via MediaRecorder, then decode the resulting Blob
      into an AudioBuffer so playback can be started/stopped sample-accurate.
    - Play AudioBuffers (recorded sections) with an onEnded callback.
-   - Generate a white-noise filter-sweep transition cue.
+   - Schedule transition cues (see transitions.js) on a separate FX bus.
    - Play a simple speaker-test tone.
    - Track every active source node so panic/stop can kill them instantly.
 
-   Everything routes to ctx.destination. The mic analyser is a separate
+   Everything routes to ctx.destination through the limiter. The mic analyser is a separate
    branch (input side) and is NOT connected to destination, so we never
    create a feedback loop.
    =========================================================== */
+
+import { scheduleTransition, makeImpulse } from './transitions.js';
 
 export class AudioEngine {
   constructor() {
@@ -34,6 +36,7 @@ export class AudioEngine {
     this.driveGain = null;         // fixed extra boost to run the output hot
     this.driveValue = 2.8;         // ≈ +9 dB; the limiter below catches the peaks
     this.limiter = null;           // brick-wall-ish limiter so the drive never clips
+    this.fxBus = null;             // transition cues: dry + reverb, skips the drive
   }
 
   /* -------- AudioContext lifecycle -------- */
@@ -52,10 +55,13 @@ export class AudioEngine {
     // Output chain (all sound — recorded playback, sweeps, test tone — runs
     // through it):
     //
-    //   sources -> outputGain -> driveGain -> limiter -> destination
+    //   takes -> outputGain -> driveGain -> limiter -> soft clip -> destination
+    //   cues  -> fxBus -> (dry + reverb) ------^
     //
-    // outputGain is the volume slider. driveGain pushes everything hot, and
+    // outputGain is the volume slider. driveGain pushes the takes hot, and
     // the limiter is a near-brick-wall so that drive never actually clips.
+    // Transition cues skip the drive: through it, even a modest cue came out
+    // ~9 dB louder than intended and sat on top of the music.
     if (!this.outputGain) {
       this.outputGain = this.ctx.createGain();
       this.outputGain.gain.value = this.outputGainValue;
@@ -71,9 +77,26 @@ export class AudioEngine {
       this.limiter.attack.value = 0.002;   // catch transients fast
       this.limiter.release.value = 0.18;
 
+      // The compressor alone is not quite brick-wall: it adds its own makeup
+      // gain and lets the first milliseconds of a transient through, so
+      // measured peaks reached +1.6 dBFS (hard digital clipping). A soft
+      // clipper after it rounds those overs off (peaks now ≈ -0.2 dBFS) and
+      // leaves everything below ~-2.5 dBFS untouched.
+      const safety = softClipper(this.ctx);
+
       this.outputGain.connect(this.driveGain);
       this.driveGain.connect(this.limiter);
-      this.limiter.connect(this.ctx.destination);
+      this.limiter.connect(safety.input);
+      safety.output.connect(this.ctx.destination);
+
+      // FX bus: mostly dry, with a soft synthetic hall for bloom and tails.
+      this.fxBus = this.ctx.createGain();
+      const reverb = this.ctx.createConvolver();
+      reverb.buffer = makeImpulse(this.ctx);
+      const wet = this.ctx.createGain();
+      wet.gain.value = 0.55;
+      this.fxBus.connect(this.limiter);
+      this.fxBus.connect(reverb).connect(wet).connect(this.limiter);
     }
     return this.ctx;
   }
@@ -272,59 +295,26 @@ export class AudioEngine {
     return src;
   }
 
-  /* -------- White-noise filter-sweep "whoosh" -------- */
+  /* -------- Transition cues -------- */
 
-  // Schedules a single whoosh that PEAKS at `peakTime` (an AudioContext time).
-  // It rises for `rise` seconds before the peak and falls for `fall` seconds
-  // after it, so a boundary sweep straddles the moment one section ends and the
-  // next begins: the rise plays over the tail of the outgoing section and the
-  // fall over the head of the incoming one. Either side may be 0 (the very
-  // first sweep of a session has no rise — just the fall into section A).
-  //
-  // Both the filter cutoff and the gain follow the same rise/peak/fall shape,
-  // and the whole thing is scheduled on the audio clock so it stays
-  // sample-accurate regardless of JS timer jitter. Returns the noise node.
-  scheduleSweep({ peakTime, rise = 0, fall = 2, volume = 0.5 } = {}) {
-    const ctx = this.ctx;
-    let start = peakTime - rise;
-    const end = peakTime + fall;
-    // Never schedule in the past (can happen if a section is shorter than the
-    // transition length); just clamp the start to "now".
-    if (start < ctx.currentTime) start = ctx.currentTime;
-    if (end <= start) return null;
+  // Schedules one cue that PEAKS at `peakTime` (an AudioContext time), rising
+  // for `rise` seconds before and falling for `fall` seconds after, so it
+  // straddles a section boundary. `type` is swell | reverse | chime; `take`
+  // is the AudioBuffer the reverse cue uses. Scheduled on the audio clock, so
+  // it stays sample-accurate regardless of JS timer jitter.
+  scheduleTransition(opts) {
+    const nodes = scheduleTransition(this.ctx, this.fxBus, opts);
+    for (const n of nodes) {
+      this.activeNodes.add(n);
+      n.onended = () => this.activeNodes.delete(n);
+    }
+    return nodes;
+  }
 
-    // White noise (1s buffer, looped for the whole whoosh).
-    const noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const ch = noiseBuf.getChannelData(0);
-    for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuf;
-    noise.loop = true;
-
-    // Band-pass filter swept lo -> hi on the way up, hi -> lo on the way down.
-    const lo = 200;
-    const hi = 8000;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.Q.value = 1.2;
-    filter.frequency.setValueAtTime(rise > 0 ? lo : hi, start);
-    if (rise > 0) filter.frequency.exponentialRampToValueAtTime(hi, peakTime);
-    if (fall > 0) filter.frequency.exponentialRampToValueAtTime(lo, end);
-
-    // Matching gain envelope: silence -> peak at the boundary -> silence.
-    const gain = ctx.createGain();
-    const peak = Math.max(0.0001, Math.min(1, volume));
-    gain.gain.setValueAtTime(0.0001, start);
-    if (rise > 0) gain.gain.exponentialRampToValueAtTime(peak, peakTime);
-    else gain.gain.setValueAtTime(peak, start);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-    noise.connect(filter).connect(gain).connect(this.outputGain);
-    noise.onended = () => this.activeNodes.delete(noise);
-    this.activeNodes.add(noise);
-    noise.start(start);
-    noise.stop(end);
-    return noise;
+  // Audition a cue on its own: rise into "now + rise", then fall.
+  previewTransition({ type, duration, volume, take }) {
+    const peakTime = this.ctx.currentTime + 0.05 + duration;
+    return this.scheduleTransition({ type, peakTime, rise: duration, fall: duration, volume, take });
   }
 
   /* -------- Speaker test -------- */
@@ -374,4 +364,26 @@ export class AudioEngine {
       this.analyser = null;
     }
   }
+}
+
+// Unity below |x| = 0.75, then a tanh knee that approaches (never passes) 0.99.
+// The shaper's curve only spans -1..1, so the input is scaled down by 1.5 and
+// the curve scaled back up, letting overs up to +3.5 dBFS land on the knee
+// instead of the curve's hard edge.
+function softClipper(ctx) {
+  const range = 1.5, knee = 0.75, room = 0.24;
+  const input = ctx.createGain();
+  input.gain.value = 1 / range;
+  const shaper = ctx.createWaveShaper();
+  const n = 2049;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const u = range * ((i / (n - 1)) * 2 - 1);
+    const a = Math.abs(u);
+    curve[i] = Math.sign(u) * (a <= knee ? a : knee + room * Math.tanh((a - knee) / room));
+  }
+  shaper.curve = curve;
+  shaper.oversample = '2x';
+  input.connect(shaper);
+  return { input, output: shaper };
 }

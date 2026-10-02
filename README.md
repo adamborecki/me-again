@@ -18,12 +18,14 @@ This is **not** a live looper. It's a delayed, turn-taking recorder/practice par
 
 1. Tap **Start**. The app asks for microphone permission and unlocks audio
    (both must happen on the tap — an iOS Safari requirement).
-2. It records **Section A** for the configured duration (default 90s).
-3. It plays a **transition** cue (a white-noise filter sweep).
-4. It **plays back A**.
-5. As it transitions into the next section, it starts **recording B** while the
-   transition cue is still playing (overlap is intentional — see below).
-6. It records B, plays B back, and continues with C, D, … until you stop.
+2. It records **Section A** for the configured duration (default 4s).
+3. It **plays back A**.
+4. It **records B**, plays B back, and continues with C, D, … until you stop.
+
+A short **transition cue** straddles every boundary between segments: it rises
+over the last seconds of one segment, peaks exactly at the boundary, and falls
+over the first seconds of the next. It overlaps recording and playback by
+design (see *Transitions* below).
 
 Reused sections (e.g. `A` in a Ternary form) **replay the saved take** instead
 of re-recording.
@@ -66,9 +68,8 @@ paths).
 - **Use the Start button.** AudioContext is created/resumed and the mic is
   requested inside that tap, which is what Safari requires.
 - **Headphones strongly recommended.** When using speakers, the transition cue
-  (and any room sound) leaks into the next recording. With "Record during
-  transition" on, that's expected; use headphones for clean takes, or enable
-  **Strict no-overlap mode**.
+  (and any room sound) leaks into the recording. Use headphones for clean
+  takes, or turn the cue off.
 - Recording uses `MediaRecorder` with a feature-detected MIME type
   (`audio/mp4` on iOS, `audio/webm` on Chrome/Firefox). If recording isn't
   supported, you'll get a clear error message.
@@ -82,14 +83,22 @@ paths).
   musical time: `duration = (60 / BPM) × beatsPerBar × bars`.
 - **Playback repeats** — play each section 1–N times before moving on.
 - **Auto-maximize loudness** (on by default) — each take is boosted toward a
-  loud target on save, with a hard no-clip ceiling. Built for the quiet iPhone
-  built-in mic. *Playback volume* is an extra trim on top.
+  loud target on save, with a no-clip ceiling. Built for the quiet iPhone
+  built-in mic. *Playback volume* is an extra trim on top. Playback runs hot
+  into a limiter and then a soft clipper, so it stays loud without digital
+  overs.
 - **Form** — Free/Infinite, Simple (A B C D), Ternary (A B A), Rondo (A B A C A).
-- **Transitions** — enable/disable, duration, type, sweep direction (up/down),
-  volume. White-noise sweep is the implemented cue.
-- **Overlap** — *Record during transition* (on by default) and *Strict
-  no-overlap mode* (never record while anything is playing; overrides the
-  former).
+- **Transitions** — enable/disable, sound, length, volume, and **Preview cue**
+  to audition it. Sounds:
+  - *Soft swell* (default) — stereo pink noise through a gently resonant
+    low-pass sweep.
+  - *Reverse swell* — the end of your most recent take, played backwards into
+    the boundary. Uses a soft swell until something has been recorded.
+  - *Chime* — a synthesized bell, played backwards into the boundary and then
+    struck forwards out of it.
+
+  All cues share a soft reverb and bypass the playback drive, so they sit
+  under the music (default volume ≈ 15 dB below an auto-maximized take).
 - **Session** — Clear Recordings, Reset Session.
 
 Settings persist in `localStorage`. Recordings do **not** — they're in memory
@@ -101,11 +110,10 @@ and clear on reload.
 
 - **Recordings are in-memory only.** Reloading the page loses them. (Export is
   designed-for but not implemented — see below.)
-- **Reverse-intro transition is not implemented.** Selecting "Reverse intro" or
-  "Both" falls back to the white-noise sweep so the app stays functional. The
-  options are visible but stubbed (TODO in `stateMachine.js`).
-- Overlap only layers the short transition cue onto the **start** of the next
-  recording — the app never records over a full playback (by design for MVP).
+- The chime is pitched on C. It's bell-like enough to sit OK in most keys,
+  but it isn't tuned to your music.
+- The app never records over a full playback; only the short transition cue
+  overlaps a recording (by design).
 - Free/Infinite form recycles letters after `Z` (Z → A) rather than `AA`.
 
 ---
@@ -118,7 +126,6 @@ and clear on reload.
 - Metronome / count-in.
 - Smarter form engine (custom patterns).
 - Saved sessions (IndexedDB).
-- Reverse-audio transitions.
 - Device input/output selection where browser support allows.
 
 ---
@@ -129,7 +136,8 @@ and clear on reload.
 index.html          markup + settings panel
 src/styles.css      dark, mobile-first, state-driven theming
 src/audioEngine.js  Web Audio + MediaRecorder (record, decode, playback,
-                    noise-sweep transition, metering, test tone)
+                    output limiter, FX bus, metering, test tone)
+src/transitions.js  the transition cues (swell, reverse, chime) + reverb
 src/stateMachine.js phase-queue session driver (record/transition/playback)
 src/ui.js           DOM rendering, settings <-> config, event log
 src/main.js         orchestrator + iOS user-gesture handling
@@ -146,11 +154,10 @@ src/main.js         orchestrator + iOS user-gesture handling
 - [ ] Speaker test plays a tone
 - [ ] A 10-second test recording records and plays back
 - [ ] A 90-second recording works
-- [ ] Transition sound (white-noise sweep) plays between phases
+- [ ] Each transition sound previews (Preview cue) and plays at boundaries
+- [ ] Reverse swell uses the previous take once one exists
 - [ ] Playback repeats (set to 2 or 3) play the section that many times
 - [ ] Stop ends the session cleanly
 - [ ] Panic Stop immediately kills all audio/timers
-- [ ] Strict no-overlap mode never records while audio is playing
-- [ ] Record-during-transition overlaps the cue onto the next recording's start
 - [ ] Ternary/Rondo replay the saved `A` instead of re-recording it
 - [ ] Clear Recordings empties memory; Reset Session returns to idle
