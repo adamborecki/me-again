@@ -76,26 +76,33 @@ function store(ctx) {
   return s;
 }
 
-// 3 s of decorrelated stereo pink noise (Paul Kellet's filter), peak-normalized.
+// 3 s of decorrelated stereo pink noise (Paul Kellet's filter), peak-normalized
+// and seamlessly loopable: the extra samples past the end are crossfaded
+// (equal power) into the start, so the loop point has no step or thump.
 function pinkNoise(ctx) {
   const s = store(ctx);
   if (s.pink) return s.pink;
   const len = Math.floor(ctx.sampleRate * 3);
+  const fade = Math.floor(ctx.sampleRate * 0.25);
   const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  const raw = new Float32Array(len + fade);
   for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    let b0 = 0, b1 = 0, b2 = 0, peak = 0;
-    for (let i = 0; i < len; i++) {
+    let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < raw.length; i++) {
       const w = Math.random() * 2 - 1;
       b0 = 0.99765 * b0 + w * 0.0990460;
       b1 = 0.96300 * b1 + w * 0.2965164;
       b2 = 0.57000 * b2 + w * 1.0526913;
-      d[i] = b0 + b1 + b2 + w * 0.1848;
-      const a = Math.abs(d[i]);
-      if (a > peak) peak = a;
+      raw[i] = b0 + b1 + b2 + w * 0.1848;
     }
-    for (let i = 0; i < len; i++) d[i] /= peak;
+    const d = buf.getChannelData(ch);
+    d.set(raw.subarray(0, len));
+    for (let i = 0; i < fade; i++) {
+      const x = (i / fade) * Math.PI / 2;
+      d[i] = raw[i] * Math.sin(x) + raw[len + i] * Math.cos(x);
+    }
   }
+  normalize(buf, 1);
   s.pink = buf;
   return buf;
 }
@@ -272,10 +279,13 @@ function swellCue(ctx, dest, { start, peakTime, end, peak }) {
 
 function reverseCue(ctx, dest, { start, peakTime, end, peak }, take) {
   // Reverse the last (rise + fall) seconds of the take: what plays into the
-  // boundary is the take's ending, backwards.
-  const len = Math.min(take.duration, end - start);
+  // boundary is the take's ending, backwards. If the take is shorter than the
+  // cue, start it later so it still straddles the boundary in proportion.
+  const total = end - start;
+  const len = Math.min(take.duration, total);
   const src = ctx.createBufferSource();
   src.buffer = reversedTail(ctx, take, len);
+  const srcStart = Math.max(start, peakTime - len * ((peakTime - start) / total));
 
   const hp = ctx.createBiquadFilter(); // keep the low end from muddying
   hp.type = 'highpass';
@@ -285,7 +295,7 @@ function reverseCue(ctx, dest, { start, peakTime, end, peak }, take) {
   shapeGain(env.gain, { start, peakTime, end, peak });
 
   src.connect(hp).connect(env).connect(dest);
-  src.start(start);
+  src.start(srcStart);
   src.stop(end + 0.05);
   return [src];
 }

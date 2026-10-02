@@ -37,6 +37,9 @@ export class AudioEngine {
     this.driveValue = 2.8;         // ≈ +9 dB; the limiter below catches the peaks
     this.limiter = null;           // brick-wall-ish limiter so the drive never clips
     this.fxBus = null;             // transition cues: dry + reverb, skips the drive
+    this.reverb = null;            // ConvolverNode on the FX bus (replaced on stop)
+    this.reverbWet = null;
+    this.impulse = null;
   }
 
   /* -------- AudioContext lifecycle -------- */
@@ -91,12 +94,12 @@ export class AudioEngine {
 
       // FX bus: mostly dry, with a soft synthetic hall for bloom and tails.
       this.fxBus = this.ctx.createGain();
-      const reverb = this.ctx.createConvolver();
-      reverb.buffer = makeImpulse(this.ctx);
-      const wet = this.ctx.createGain();
-      wet.gain.value = 0.55;
+      this.impulse = makeImpulse(this.ctx);
+      this.reverbWet = this.ctx.createGain();
+      this.reverbWet.gain.value = 0.55;
+      this.reverbWet.connect(this.limiter);
       this.fxBus.connect(this.limiter);
-      this.fxBus.connect(reverb).connect(wet).connect(this.limiter);
+      this._newReverb();
     }
     return this.ctx;
   }
@@ -297,6 +300,17 @@ export class AudioEngine {
 
   /* -------- Transition cues -------- */
 
+  // (Re)build the convolver. Swapping in a fresh one is the only way to
+  // silence a reverb tail that's already ringing (used by stop/panic).
+  _newReverb() {
+    if (this.reverb) {
+      try { this.fxBus.disconnect(this.reverb); this.reverb.disconnect(); } catch (_) { /* ok */ }
+    }
+    this.reverb = this.ctx.createConvolver();
+    this.reverb.buffer = this.impulse;
+    this.fxBus.connect(this.reverb).connect(this.reverbWet);
+  }
+
   // Schedules one cue that PEAKS at `peakTime` (an AudioContext time), rising
   // for `rise` seconds before and falling for `fall` seconds after, so it
   // straddles a section boundary. `type` is swell | reverse | chime; `take`
@@ -347,6 +361,8 @@ export class AudioEngine {
       try { node.onended = null; node.stop(); } catch (_) { /* already stopped */ }
     }
     this.activeNodes.clear();
+    // Cut any ringing reverb tail too, so Stop / Panic means silence.
+    if (this.reverb) this._newReverb();
   }
 
   // Full teardown for panic. Keeps the AudioContext/mic alive so the app
