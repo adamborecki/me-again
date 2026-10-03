@@ -8,6 +8,8 @@
 import { AudioEngine } from './audioEngine.js';
 import { StateMachine } from './stateMachine.js';
 import { UI } from './ui.js';
+import { saveTake, clearTakes, loadTakes, toAudioBuffer } from './store.js';
+import { wavFromBuffer, saveFiles, stamp } from './wav.js';
 
 const ui = new UI();
 const audio = new AudioEngine();
@@ -15,6 +17,7 @@ const machine = new StateMachine({
   audio,
   onEvent: (evt) => {
     ui.handleEvent(evt);
+    if (evt.type === 'take') keepTake(evt);
     // Keep the transport button label in sync with run state.
     if (evt.type === 'state') {
       const running = evt.state !== 'idle' && evt.state !== 'stopped' && evt.state !== 'error';
@@ -33,6 +36,10 @@ ui.onStart = async () => {
     await audio.init();
 
     // 2) Ask for the mic the first time; reuse the stream afterwards.
+    // Starting without restoring = starting fresh (the saved session is
+    // replaced once the first new take is saved).
+    if (pendingSaved) ui.showSavedSession(null);
+
     const cfg = ui.readConfig();
     audio.setOutputGain(cfg.playbackVolume);
     machine.start(cfg);                   // -> state: requestingMic
@@ -89,13 +96,17 @@ ui.onPanic = () => {
 
 /* ---------------- Session buttons ---------------- */
 
-ui.onClearRecordings = () => machine.clearRecordings();
+ui.onClearRecordings = () => {
+  machine.clearRecordings();
+  forgetSaved();
+};
 
 // Live playback-volume changes (slider) — apply if the context exists yet.
 ui.onPlaybackVolume = (v) => { if (audio.ctx) audio.setOutputGain(v); };
 
 ui.onResetSession = () => {
   machine.resetSession();
+  forgetSaved();
   ui.setRunning(false);
   ui.resetView();
 };
@@ -126,6 +137,68 @@ ui.onPreviewTransition = async () => {
   } catch (err) {
     ui.showError(err.message || 'Could not play the preview.');
   }
+};
+
+/* ---------------- Keeping takes (IndexedDB) + export ---------------- */
+// The store holds ONE session. Until the saved one is restored or dismissed,
+// it's left alone; the first take of a new session replaces it.
+
+let pendingSaved = null;           // takes from last visit, not yet restored
+let storeOwned = false;            // store now holds this visit's session
+let storeQueue = Promise.resolve(); // keep IndexedDB writes in order
+
+function keepTake({ label, buffer, order }) {
+  storeQueue = storeQueue.then(async () => {
+    if (!storeOwned) {
+      await clearTakes();
+      storeOwned = true;
+      pendingSaved = null;
+      ui.showSavedSession(null);
+    }
+    await saveTake(label, buffer, order);
+  });
+}
+
+function forgetSaved() {
+  pendingSaved = null;
+  storeOwned = true;
+  ui.showSavedSession(null);
+  storeQueue = storeQueue.then(() => clearTakes());
+}
+
+loadTakes().then((takes) => {
+  if (!takes.length || machine.recordingCount > 0 || storeOwned) return;
+  pendingSaved = takes;
+  ui.showSavedSession(takes);
+});
+
+ui.onRestoreSession = () => {
+  if (!pendingSaved || machine.running) return;
+  try {
+    const takes = pendingSaved.map((t) => ({ label: t.label, buffer: toAudioBuffer(t) }));
+    machine.restore(takes);
+    storeOwned = true;
+    pendingSaved = null;
+    ui.showSavedSession(null);
+    ui.addLog(`Restored ${takes.map((t) => t.label).join(' ')}. Start replays them, then records what's next.`);
+  } catch (err) {
+    ui.showError(`Couldn't restore the saved takes: ${err.message || err}`);
+  }
+};
+
+ui.onDismissSession = () => forgetSaved();
+
+// One WAV per section. Encoding is synchronous so the share sheet still
+// counts as part of the tap (iOS requires that).
+ui.onExport = async () => {
+  const takes = [...machine.recordings.entries()];
+  if (!takes.length) return;
+  const when = stamp();
+  const files = takes.map(([label, buf]) =>
+    new File([wavFromBuffer(buf)], `Me Again - ${label} - ${when}.wav`, { type: 'audio/wav' }));
+  const how = await saveFiles(files);
+  if (how === 'shared') ui.addLog(`Shared ${files.length} take${files.length === 1 ? '' : 's'}`);
+  else if (how === 'downloaded') ui.addLog(`Downloaded ${files.length} WAV file${files.length === 1 ? '' : 's'}`);
 };
 
 /* ---------------- Safety: stop audio if tab is hidden ---------------- */

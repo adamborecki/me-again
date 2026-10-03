@@ -37,6 +37,9 @@ export class UI {
     this.onResetSession = () => {};
     this.onPlaybackVolume = () => {};
     this.onPreviewTransition = () => {};
+    this.onExport = () => {};
+    this.onRestoreSession = () => {};
+    this.onDismissSession = () => {};
 
     this.running = false;
     this._cacheEls();
@@ -80,6 +83,9 @@ export class UI {
     this.$('clearRecordings').addEventListener('click', () => this.onClearRecordings());
     this.$('resetSession').addEventListener('click', () => this.onResetSession());
     this.$('previewTransition').addEventListener('click', () => this.onPreviewTransition());
+    this.$('exportTakes').addEventListener('click', () => this.onExport());
+    this.$('restoreSession').addEventListener('click', () => this.onRestoreSession());
+    this.$('dismissSession').addEventListener('click', () => this.onDismissSession());
 
     // Playback volume: live label + apply to the running engine immediately.
     const vol = this.$('playbackVolume');
@@ -254,9 +260,22 @@ export class UI {
     }
   }
 
+  // takes: [{ label, savedAt }] kept from a previous visit, or null to hide.
+  showSavedSession(takes) {
+    const box = this.$('savedSession');
+    if (!takes || !takes.length) { box.hidden = true; return; }
+    const when = new Date(Math.max(...takes.map((t) => t.savedAt || 0)));
+    const labels = takes.map((t) => t.label).join(' ');
+    this.$('savedSessionInfo').textContent =
+      `Last session (${labels}) from ${when.toLocaleDateString([], { month: 'short', day: 'numeric' })} ` +
+      `${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} is saved on this device.`;
+    box.hidden = false;
+  }
+
   updateRecordingsInfo(count) {
+    this.$('exportTakes').disabled = count === 0;
     this.els.recordingsInfo.textContent =
-      count === 0 ? 'No recordings yet.' : `${count} section${count === 1 ? '' : 's'} in memory.`;
+      count === 0 ? 'No recordings yet.' : `${count} section${count === 1 ? '' : 's'} kept on this device.`;
   }
 
   resetView() {

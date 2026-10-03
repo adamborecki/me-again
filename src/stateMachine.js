@@ -110,6 +110,16 @@ export class StateMachine {
     this.onEvent({ type: 'log', message: '⛔ Panic stop — all audio killed' });
   }
 
+  // Load takes kept from a previous visit ([{ label, buffer }] in recording
+  // order). A following Start replays them instead of re-recording, then
+  // carries on recording the first section that isn't saved yet.
+  restore(takes) {
+    this.recordings.clear();
+    for (const t of takes) this.recordings.set(t.label, t.buffer);
+    this.lastTake = takes.length ? takes[takes.length - 1].buffer : null;
+    this.onEvent({ type: 'recordings', count: this.recordings.size });
+  }
+
   clearRecordings() {
     this.recordings.clear();
     this.lastTake = null;
@@ -206,6 +216,7 @@ export class StateMachine {
         this.lastTake = buffer;
         this.onEvent({ type: 'recordings', count: this.recordings.size });
         this.onEvent({ type: 'log', message: `Saved ${phase.label}${boost}` });
+        this.onEvent({ type: 'take', label: phase.label, buffer, order: this.recordings.size });
       } else {
         this.onEvent({ type: 'log', message: `⚠ ${phase.label} recorded empty` });
       }

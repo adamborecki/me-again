@@ -303,6 +303,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
 .app[data-state="transition"] .stage::before { animation: shimmer 1s linear infinite; }
 @keyframes shimmer { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
+.saved-session {
+  margin-top: 14px; padding: 12px; border-radius: 12px;
+  background: var(--accent-soft); border: 1px solid var(--accent);
+  font-size: 14px; line-height: 1.4;
+}
+.saved-session p { margin: 0 0 10px; }
+.saved-session .row .btn { flex: 1; }
+.saved-session #restoreSession { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 @media (prefers-reduced-motion: reduce) {
   *, .stage::before { animation: none !important; transition: none !important; }
 }

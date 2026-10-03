@@ -6,7 +6,7 @@ You play or sing a phrase; the app records it, plays it back, then records your
 next phrase over a transition cue — turning a solo practice session into a
 turn-taking duet with yourself. Built for ukulele, voice, or any acoustic
 instrument. Runs entirely in the browser (works on iOS Safari), no backend,
-no uploads — recordings live in memory only.
+no uploads — takes stay on your device.
 
 > Record → transition → playback → transition while the next recording begins → repeat.
 
@@ -99,17 +99,20 @@ paths).
 
   All cues share a soft reverb and bypass the playback drive, so they sit
   under the music (default volume ≈ 15 dB below an auto-maximized take).
-- **Session** — Clear Recordings, Reset Session.
+- **Session** — Clear Recordings, Reset Session, **Export takes (WAV)** (one
+  file per section, via the iPhone share sheet or as downloads).
 
-Settings persist in `localStorage`. Recordings do **not** — they're in memory
-and clear on reload.
+Settings persist in `localStorage`. Takes are kept in IndexedDB (localStorage
+is far too small for audio). After a reload, a card offers **Restore** (Start
+then replays the saved sections and records the next new one) or **Start
+fresh**. Starting a new session replaces the saved one once its first take is
+saved. iOS Safari can clear site data after ~7 days without a visit, so export
+anything you want to keep.
 
 ---
 
 ## Known limitations
 
-- **Recordings are in-memory only.** Reloading the page loses them. (Export is
-  designed-for but not implemented — see below.)
 - The chime is pitched on C. It's bell-like enough to sit OK in most keys,
   but it isn't tuned to your music.
 - The app never records over a full playback; only the short transition cue
@@ -120,12 +123,10 @@ and clear on reload.
 
 ## Future ideas
 
-- Export recordings (the engine already decodes to `AudioBuffer`; add WAV
-  encoding + download).
 - Waveform display.
 - Metronome / count-in.
 - Smarter form engine (custom patterns).
-- Saved sessions (IndexedDB).
+- Several saved sessions (only the latest is kept today).
 - Device input/output selection where browser support allows.
 
 ---
@@ -138,6 +139,8 @@ src/styles.css      dark, mobile-first, state-driven theming
 src/audioEngine.js  Web Audio + MediaRecorder (record, decode, playback,
                     output limiter, FX bus, metering, test tone)
 src/transitions.js  the transition cues (swell, reverse, chime) + reverb
+src/store.js        keeps the session's takes on this device (IndexedDB)
+src/wav.js          WAV encoding + share / download
 src/stateMachine.js phase-queue session driver (record/transition/playback)
 src/ui.js           DOM rendering, settings <-> config, event log
 src/main.js         orchestrator + iOS user-gesture handling
@@ -161,3 +164,6 @@ src/main.js         orchestrator + iOS user-gesture handling
 - [ ] Panic Stop immediately kills all audio/timers
 - [ ] Ternary/Rondo replay the saved `A` instead of re-recording it
 - [ ] Clear Recordings empties memory; Reset Session returns to idle
+- [ ] Reload after a session shows the Restore card; Restore + Start replays
+      the saved sections, then records the next one
+- [ ] Export takes opens the share sheet on iPhone; the WAVs play

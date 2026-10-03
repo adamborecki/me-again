@@ -50,6 +50,14 @@
         <button class="btn ghost" id="speakerTest">Test Speaker</button>
       </div>
 
+      <div class="saved-session" id="savedSession" hidden>
+        <p id="savedSessionInfo">Last session is saved on this device.</p>
+        <div class="row">
+          <button class="btn" id="restoreSession">Restore</button>
+          <button class="btn ghost" id="dismissSession">Start fresh</button>
+        </div>
+      </div>
+
       <p class="hint">🎧 Headphones recommended for clean recordings.</p>
     </section>
 
@@ -172,12 +180,16 @@
           <button class="btn ghost" id="clearRecordings">Clear Recordings</button>
           <button class="btn ghost" id="resetSession">Reset Session</button>
         </div>
+        <div class="row">
+          <button class="btn" id="exportTakes" disabled>⤓ Export takes (WAV)</button>
+        </div>
         <p class="note" id="recordingsInfo">No recordings yet.</p>
+        <p class="note">Takes are kept on this device until you clear them or start a new session. iPhone Safari can clear site data after about a week without a visit, so export anything you want to keep.</p>
       </fieldset>
     </section>
 
     <footer class="footer">
-      <span>Recordings are kept in memory only — they vanish on reload.</span>
+      <span>Takes stay on this device. Nothing is uploaded.</span>
     </footer>
   </main>
 
