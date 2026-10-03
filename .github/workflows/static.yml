@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Stamp build (cache-busting + footer label)
+        run: tools/stamp-build.sh "${GITHUB_SHA::7}"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
