@@ -111,7 +111,7 @@ html, body {
 .strip-wrap { width: 100%; display: flex; align-items: center; gap: 4px; position: relative; }
 .strip {
   list-style: none; margin: 0; padding: 8px 5px;
-  flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  flex: 1; display: flex; gap: 4px; align-items: flex-end; overflow-x: auto; scrollbar-width: none;
 }
 .strip::-webkit-scrollbar { display: none; }
 .tile {
@@ -127,6 +127,15 @@ html, body {
 }
 .tile b { font-size: 20px; line-height: 1; }
 .tile.is-long b { font-size: 16px; letter-spacing: -0.02em; }
+/* lower case = phrase-level section: shorter, lighter, outlined */
+.tile.is-lower {
+  height: 40px; border-radius: 10px; border-style: dashed;
+  background: hsl(var(--hue) 55% 70% / 0.08);
+  color: hsl(var(--hue) 80% 88%);
+}
+.tile.is-lower b { font-size: 17px; font-weight: 600; }
+.tile.is-lower.is-now { background: hsl(var(--hue) 55% 68%); color: #10121f; border-style: solid; }
+.tile.is-lower.is-now .mark.play { border-left-color: #10121f; }
 .tile.is-done { opacity: 0.38; }
 .tile.is-now {
   background: hsl(var(--hue) 62% 52%); border-color: hsl(var(--hue) 80% 72%); color: #fff;
@@ -236,13 +245,14 @@ html, body {
 .form-card:disabled { opacity: 0.35; cursor: default; }
 .form-card-name { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
 .form-card.active .form-card-name { color: var(--text); }
-.mini { display: flex; gap: 1px; align-items: center; min-height: 16px; flex-wrap: wrap; justify-content: center; }
+.mini { display: flex; gap: 1px; align-items: flex-end; min-height: 16px; flex-wrap: wrap; justify-content: center; }
 .mini-tile {
   --hue: 250;
   min-width: 11px; height: 15px; padding: 0 1px; border-radius: 3px;
   display: grid; place-items: center; font-size: 8px; font-weight: 800; color: #fff;
   background: hsl(var(--hue) 60% 52%);
 }
+.mini-tile.is-lower { height: 11px; background: hsl(var(--hue) 55% 72%); color: #10121f; font-weight: 700; }
 .mini-more { font-size: 13px; color: var(--muted); padding: 0 2px; }
 
 .btn {

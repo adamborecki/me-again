@@ -381,7 +381,7 @@ export class UI {
     strip.textContent = '';
     for (const st of steps) {
       const li = document.createElement('li');
-      li.className = `tile is-${st.status}${st.label.length > 1 ? ' is-long' : ''}`;
+      li.className = `tile is-${st.status}${st.label.length > 1 ? ' is-long' : ''}${isLower(st.label) ? ' is-lower' : ''}`;
       li.style.setProperty('--hue', hueFor(st.label));
       const b = document.createElement('b');
       b.textContent = st.label;
@@ -575,9 +575,12 @@ export class UI {
   }
 }
 
+// Lower-case labels (a, b') are phrase-level sections: drawn smaller and lighter.
+const isLower = (label) => /^[a-z]/.test(label);
+
 function miniTile(ch) {
   const t = document.createElement('span');
-  t.className = 'mini-tile';
+  t.className = isLower(ch) ? 'mini-tile is-lower' : 'mini-tile';
   t.style.setProperty('--hue', hueFor(ch));
   t.textContent = ch;
   return t;
