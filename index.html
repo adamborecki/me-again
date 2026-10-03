@@ -21,33 +21,40 @@
 
     <!-- ===================== Stage ===================== -->
     <section class="stage" aria-live="polite">
-      <!-- State + section badge -->
-      <div class="stage-top">
-        <div class="section-badge" id="sectionBadge" aria-label="Current section">—</div>
-        <div class="state-info">
-          <div class="state-label" id="stateLabel">Idle</div>
-          <div class="repeat-info" id="repeatInfo"></div>
-        </div>
+      <!-- Form: where you are in it -->
+      <div class="form-head">
+        <span class="form-name" id="formName">Free</span>
+        <span class="round" id="roundInfo"></span>
       </div>
-
-      <!-- Big countdown -->
-      <div class="countdown" id="countdown">0:00</div>
-
-      <!-- Mic meter -->
-      <div class="meter" aria-label="Microphone input level">
-        <div class="meter-fill" id="meterFill"></div>
+      <div class="strip-wrap">
+        <ol class="strip" id="strip" aria-label="Form sections"></ol>
+        <button class="end-toggle" id="endToggle" title="What happens at the end of the form">↻</button>
       </div>
-      <div class="meter-caption">mic input</div>
+      <div class="legend"><span><i class="mark rec"></i> record</span><span><i class="mark play"></i> replay saved take</span></div>
 
-      <!-- Big transport button -->
+      <!-- Now -->
+      <div class="now-box">
+        <div class="now-label" id="stateLabel">Ready</div>
+        <div class="countdown" id="countdown">0:00</div>
+        <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="repeat-info" id="repeatInfo"></div>
+      </div>
+      <div class="next" id="nextInfo">Next: record A</div>
+
+      <!-- Transport -->
       <button class="transport" id="startStop">
+        <span class="transport-icon" id="startStopIcon" aria-hidden="true">●</span>
         <span class="transport-label" id="startStopLabel">Start</span>
       </button>
 
+      <div class="meter" aria-label="Microphone input level">
+        <div class="meter-fill" id="meterFill"></div>
+      </div>
+
       <div class="secondary-controls">
-        <button class="btn" id="stopMic">Stop Mic</button>
-        <button class="btn danger" id="panicStop">Panic Stop</button>
-        <button class="btn ghost" id="speakerTest">Test Speaker</button>
+        <button class="pill" id="speakerTest">🔊 Test</button>
+        <button class="pill" id="stopMic">🎙 Release mic</button>
+        <button class="pill danger" id="panicStop">⏹ Panic</button>
       </div>
 
       <div class="saved-session" id="savedSession" hidden>
@@ -57,19 +64,30 @@
           <button class="btn ghost" id="dismissSession">Start fresh</button>
         </div>
       </div>
-
-      <p class="hint">🎧 Headphones recommended for clean recordings.</p>
     </section>
 
-    <!-- ===================== Event log ===================== -->
-    <section class="log-panel">
-      <div class="log-header">Activity</div>
-      <ul class="log" id="log" aria-live="polite"></ul>
+    <!-- ===================== Form picker ===================== -->
+    <section class="panel">
+      <h2 class="panel-title">Form</h2>
+      <div class="form-grid" id="formGrid" role="radiogroup" aria-label="Form"></div>
+      <label class="field" id="customField" hidden>
+        <span>Your pattern (letters)</span>
+        <input type="text" id="customPattern" value="AABACA" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="40" />
+      </label>
+      <div class="field">
+        <span>At the end of the form</span>
+        <div class="seg" id="endSeg">
+          <button class="seg-btn active" data-end="loop">↻ Loop it</button>
+          <button class="seg-btn" data-end="stop">■ Stop</button>
+        </div>
+      </div>
+      <p class="note">Each new letter is recorded once. When it comes back, your saved take is replayed.</p>
     </section>
 
     <!-- ===================== Settings ===================== -->
     <section class="settings" id="settings">
       <h2 class="settings-title">Settings</h2>
+      <p class="note hint-top">🎧 Headphones recommended: the speaker leaks into your takes.</p>
 
       <!-- Timing mode -->
       <fieldset class="group">
@@ -132,18 +150,6 @@
         <p class="note">Extra trim on top of auto-maximize. Above 100% can clip. Also check your phone's media volume.</p>
       </fieldset>
 
-      <!-- Form -->
-      <fieldset class="group">
-        <legend>Form</legend>
-        <select id="form" class="select">
-          <option value="free" selected>Free / Infinite (A B C D …)</option>
-          <option value="simple">Simple sections (A B C D)</option>
-          <option value="ternary">Ternary (A B A)</option>
-          <option value="rondo">Rondo (A B A C A)</option>
-        </select>
-        <p class="note">Reused sections (e.g. A in ternary) replay the saved take instead of re-recording.</p>
-      </fieldset>
-
       <!-- Transitions -->
       <fieldset class="group">
         <legend>Transitions</legend>
@@ -187,6 +193,12 @@
         <p class="note">Takes are kept on this device until you clear them or start a new session. iPhone Safari can clear site data after about a week without a visit, so export anything you want to keep.</p>
       </fieldset>
     </section>
+
+    <!-- ===================== Event log ===================== -->
+    <details class="log-panel">
+      <summary class="log-header">Activity log</summary>
+      <ul class="log" id="log" aria-live="polite"></ul>
+    </details>
 
     <footer class="footer">
       <span>Takes stay on this device. Nothing is uploaded.</span>

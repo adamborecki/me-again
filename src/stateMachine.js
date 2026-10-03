@@ -31,14 +31,7 @@
    stopped, error.
    =========================================================== */
 
-const FORMS = {
-  free:    null,                  // dynamic: A, B, C, D … (handled specially)
-  simple:  ['A', 'B', 'C', 'D'],
-  ternary: ['A', 'B', 'A'],
-  rondo:   ['A', 'B', 'A', 'C', 'A'],
-};
-
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+import { labelAt } from './forms.js';
 
 export class StateMachine {
   /**
@@ -117,13 +110,13 @@ export class StateMachine {
     this.recordings.clear();
     for (const t of takes) this.recordings.set(t.label, t.buffer);
     this.lastTake = takes.length ? takes[takes.length - 1].buffer : null;
-    this.onEvent({ type: 'recordings', count: this.recordings.size });
+    this._emitRecordings();
   }
 
   clearRecordings() {
     this.recordings.clear();
     this.lastTake = null;
-    this.onEvent({ type: 'recordings', count: 0 });
+    this._emitRecordings();
     this.onEvent({ type: 'log', message: 'Recordings cleared' });
   }
 
@@ -132,21 +125,28 @@ export class StateMachine {
     this.recordings.clear();
     this._reset();
     this._setState('idle');
-    this.onEvent({ type: 'recordings', count: 0 });
+    this._emitRecordings();
     this.onEvent({ type: 'log', message: 'Session reset' });
     this.onEvent({ type: 'section', label: '—' });
   }
 
   /* ---------------- phase generation ---------------- */
 
-  // Returns the section label for the current stepIndex given the form.
+  // Section label for a step. config.pattern is a string like "ABACA", or
+  // null for free form (a brand new letter each step).
   _labelForStep(idx) {
-    const pattern = FORMS[this.config.form];
-    if (!pattern) {
-      // Free / infinite: a brand new letter each step.
-      return LETTERS[idx % LETTERS.length];
-    }
-    return pattern[idx % pattern.length];
+    return labelAt(this.config.pattern, idx);
+  }
+
+  // True when this step is the last of the form and the form should stop
+  // there (instead of looping back to the start).
+  _isFinalStep() {
+    const p = this.config.pattern;
+    return !!p && this.config.endAction === 'stop' && (this.stepIndex + 1) % p.length === 0;
+  }
+
+  _emitRecordings() {
+    this.onEvent({ type: 'recordings', count: this.recordings.size, labels: [...this.recordings.keys()] });
   }
 
   // Build the segments for the upcoming step and push them onto the queue.
@@ -162,6 +162,7 @@ export class StateMachine {
 
     this.phaseQueue = phases;
     this.onEvent({ type: 'section', label });
+    this.onEvent({ type: 'step', index: this.stepIndex, label, isNew });
   }
 
   /* ---------------- driver ---------------- */
@@ -186,6 +187,14 @@ export class StateMachine {
 
   // Called when all phases of a step are done -> move to next step.
   _stepDone() {
+    if (this._isFinalStep()) {
+      this._clearTimers();
+      this.running = false;
+      this.currentPhase = null;
+      this.onEvent({ type: 'log', message: 'Form complete ✓' });
+      this._setState('stopped', { complete: true });
+      return;
+    }
     this.stepIndex += 1;
     this._advance();
   }
@@ -214,7 +223,7 @@ export class StateMachine {
         }
         this.recordings.set(phase.label, buffer);
         this.lastTake = buffer;
-        this.onEvent({ type: 'recordings', count: this.recordings.size });
+        this._emitRecordings();
         this.onEvent({ type: 'log', message: `Saved ${phase.label}${boost}` });
         this.onEvent({ type: 'take', label: phase.label, buffer, order: this.recordings.size });
       } else {
@@ -235,7 +244,8 @@ export class StateMachine {
     let n = 0;
 
     // Whoosh peaks at the very end of the whole (possibly repeated) playback.
-    this._armSweeps(buffer.duration * repeats, buffer);
+    const final = this._isFinalStep() && this.phaseQueue.length === 0;
+    this._armSweeps(buffer.duration * repeats, buffer, final);
 
     const playOnce = () => {
       if (!this.running) return;
@@ -269,7 +279,7 @@ export class StateMachine {
   //     segment's tail, fall over the next segment's head)
   // `take` is the audio the reverse cue plays backwards: the take being
   // played back, or while recording, the previous take.
-  _armSweeps(segmentSeconds, take) {
+  _armSweeps(segmentSeconds, take, final = false) {
     const t = this.config.transition;
     const wasFirst = this.firstSegment;
     this.firstSegment = false;
@@ -281,7 +291,8 @@ export class StateMachine {
       // Intro: peak at the very start, fall into the head of section A.
       this.audio.scheduleTransition({ ...base, peakTime: now, rise: 0, fall: t.duration });
     }
-    // Boundary at the end of this segment.
+    // Boundary at the end of this segment (none after the form's last one).
+    if (final) return;
     this.audio.scheduleTransition({
       ...base,
       take,
@@ -306,7 +317,7 @@ export class StateMachine {
     this.deadline = performance.now() + seconds * 1000;
     const update = () => {
       const remain = Math.max(0, (this.deadline - performance.now()) / 1000);
-      this.onEvent({ type: 'countdown', seconds: remain });
+      this.onEvent({ type: 'countdown', seconds: remain, total: seconds });
     };
     update();
     this.tick = setInterval(update, 100);

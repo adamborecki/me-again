@@ -100,28 +100,75 @@ html, body {
   transition: background 0.4s ease;
 }
 
-.stage-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  justify-content: center;
+/* ---------- Form strip ---------- */
+.form-head {
+  width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  position: relative;
 }
-.section-badge {
-  width: 64px; height: 64px;
-  border-radius: 18px;
-  display: grid; place-items: center;
-  font-size: 30px; font-weight: 700;
-  background: var(--bg-elev-2);
-  border: 2px solid var(--accent);
-  color: var(--text);
+.form-name { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+.round { font-size: 12px; color: var(--muted); }
+
+.strip-wrap { width: 100%; display: flex; align-items: center; gap: 8px; position: relative; }
+.strip {
+  list-style: none; margin: 0; padding: 8px 6px;
+  flex: 1; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
 }
-.state-info { text-align: left; }
-.state-label { font-size: 20px; font-weight: 600; }
+.strip::-webkit-scrollbar { display: none; }
+.tile {
+  --hue: 250;
+  flex: 0 0 auto; width: 44px; height: 54px; border-radius: 12px;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: hsl(var(--hue) 55% 50% / 0.16);
+  border: 1.5px solid hsl(var(--hue) 70% 62% / 0.55);
+  color: hsl(var(--hue) 90% 82%);
+  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+.tile b { font-size: 20px; line-height: 1; }
+.tile.is-done { opacity: 0.38; }
+.tile.is-now {
+  background: hsl(var(--hue) 62% 52%); border-color: hsl(var(--hue) 80% 72%); color: #fff;
+  transform: scale(1.08); box-shadow: 0 6px 18px hsl(var(--hue) 70% 40% / 0.45);
+}
+.tile.is-more { width: 28px; border: none; background: none; color: var(--muted); font-size: 18px; }
+.tile-progress {
+  position: absolute; left: 0; bottom: 0; height: 4px; width: 0%;
+  background: rgba(255, 255, 255, 0.85); transition: width 0.1s linear;
+}
+
+/* record / replay / done markers (strip + legend) */
+.mark { display: inline-block; width: 10px; height: 10px; font-style: normal; }
+.mark.rec { border-radius: 50%; background: var(--warm); box-shadow: 0 0 0 2px rgba(0,0,0,0.15); }
+.mark.play { width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 9px; border-color: transparent transparent transparent var(--cool); }
+.tile.is-now .mark.play { border-left-color: #fff; }
+.mark.done::before { content: "✓"; font-size: 11px; line-height: 10px; display: block; text-align: center; }
+
+.legend { width: 100%; display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-top: -8px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+.end-toggle {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px dashed var(--line); background: transparent; color: var(--muted);
+  font-size: 18px; cursor: pointer;
+}
+
+/* ---------- Now / next ---------- */
+.now-box { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.now-label { font-size: 20px; font-weight: 700; }
+.app[data-state="recording"] .now-label { color: var(--warm); }
+.app[data-state="playing"] .now-label { color: var(--cool); }
+.progress { width: 100%; height: 6px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
 .repeat-info { font-size: 13px; color: var(--muted); min-height: 16px; }
+.next {
+  width: 100%; text-align: center; font-size: 15px; color: var(--text);
+  padding: 10px 12px; border-radius: 12px; background: var(--bg-elev-2); border: 1px solid var(--line);
+  min-height: 42px;
+}
+.next:empty { visibility: hidden; }
 
 .countdown {
-  font-size: 64px;
+  font-size: 56px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -131,7 +178,7 @@ html, body {
 /* ---------- Meter ---------- */
 .meter {
   width: 100%;
-  height: 12px;
+  height: 6px;
   background: var(--bg-elev-2);
   border-radius: 999px;
   overflow: hidden;
@@ -143,31 +190,58 @@ html, body {
   background: linear-gradient(90deg, #3ddc97, var(--bright), var(--warm));
   transition: width 0.06s linear;
 }
-.meter-caption { font-size: 11px; color: var(--muted); margin-top: -8px; text-transform: uppercase; letter-spacing: 0.1em; }
 
-/* ---------- Transport button ---------- */
+/* ---------- Transport ---------- */
 .transport {
-  width: 180px; height: 180px;
+  width: 150px; height: 150px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   background:
     radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 60%),
     var(--accent);
   color: #fff;
   box-shadow: 0 12px 40px var(--accent-soft), inset 0 0 0 2px rgba(255,255,255,0.08);
   transition: transform 0.08s ease, background 0.3s ease, box-shadow 0.3s ease;
-  margin-top: 4px;
 }
 .transport:active { transform: scale(0.96); }
-.transport-label { font-size: 30px; font-weight: 800; letter-spacing: 0.01em; }
+.transport-icon { font-size: 22px; line-height: 1; opacity: 0.9; }
+.transport-label { font-size: 26px; font-weight: 800; letter-spacing: 0.01em; }
 
-.secondary-controls {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  margin-top: 4px;
+.secondary-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pill {
+  padding: 8px 14px; min-height: 40px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg-elev-2); color: var(--text);
+  font-size: 14px; font-weight: 600; cursor: pointer;
 }
+.pill:active { transform: scale(0.97); }
+.pill.danger { border-color: var(--danger); color: #ffd5dd; background: rgba(255,77,109,0.12); }
+
+/* ---------- Form picker ---------- */
+.panel {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px;
+}
+.panel-title { margin: 0 0 12px; font-size: 18px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.form-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 12px 6px 10px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--bg-elev-2); color: var(--text);
+}
+.form-card.active { border-color: var(--accent); background: var(--accent-soft); }
+.form-card:disabled { opacity: 0.35; cursor: default; }
+.form-card-name { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
+.form-card.active .form-card-name { color: var(--text); }
+.mini { display: flex; gap: 1px; align-items: center; min-height: 16px; flex-wrap: wrap; justify-content: center; }
+.mini-tile {
+  --hue: 250;
+  width: 11px; height: 15px; border-radius: 3px;
+  display: grid; place-items: center; font-size: 8px; font-weight: 800; color: #fff;
+  background: hsl(var(--hue) 60% 52%);
+}
+.mini-more { font-size: 13px; color: var(--muted); padding: 0 2px; }
 
 .btn {
   flex: 1;
@@ -185,7 +259,7 @@ html, body {
 .btn.danger { background: rgba(255,77,109,0.14); border-color: var(--danger); color: #ffd5dd; }
 .btn.ghost { background: transparent; }
 
-.hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; text-align: center; }
+.hint-top { margin: -4px 0 12px; }
 
 /* ---------- Log ---------- */
 .log-panel {
@@ -196,8 +270,9 @@ html, body {
 }
 .log-header {
   font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
-  color: var(--muted); margin-bottom: 8px;
+  color: var(--muted); cursor: pointer;
 }
+.log-panel[open] .log-header { margin-bottom: 8px; }
 .log {
   list-style: none; margin: 0; padding: 0;
   max-height: 150px; overflow-y: auto;
@@ -290,7 +365,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
 .app[data-state="stopped"], .app[data-state="error"] { --accent: #6b7194; --accent-soft: rgba(107,113,148,0.18); }
 
 /* recording pulse on the badge + button */
-.app[data-state="recording"] .section-badge,
+.app[data-state="recording"] .tile.is-now,
 .app[data-state="recording"] .transport {
   animation: pulse 1.4s ease-in-out infinite;
 }

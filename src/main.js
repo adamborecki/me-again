@@ -188,6 +188,9 @@ ui.onRestoreSession = () => {
 
 ui.onDismissSession = () => forgetSaved();
 
+// Loop / Stop at the end of the form can change mid-session.
+ui.onEndAction = (action) => { if (machine.config) machine.config.endAction = action; };
+
 // One WAV per section. Encoding is synchronous so the share sheet still
 // counts as part of the tap (iOS requires that).
 ui.onExport = async () => {

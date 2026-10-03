@@ -30,6 +30,12 @@ design (see *Transitions* below).
 Reused sections (e.g. `A` in a Ternary form) **replay the saved take** instead
 of re-recording.
 
+The **form strip** at the top of the screen shows the whole form: one coloured
+tile per section, marked ● (will be recorded) or ▶ (replays your saved take).
+The current tile is lit and fills up as the section runs; finished ones dim.
+Under the timer, **Next:** says what's coming (record C, replay A, back to
+the top, or the end of the form).
+
 ---
 
 ## Running locally
@@ -87,7 +93,11 @@ paths).
   built-in mic. *Playback volume* is an extra trim on top. Playback runs hot
   into a limiter and then a soft clipper, so it stays loud without digital
   overs.
-- **Form** — Free/Infinite, Simple (A B C D), Ternary (A B A), Rondo (A B A C A).
+- **Form** — picked from icon cards: Free (A B C …), Sections (ABCD),
+  Ternary (ABA), Song form (AABA), Rondo 5 (ABACA), Rondo 7 (ABACABA),
+  Rondo 7 with a new D (ABACADA), or Custom (type any letters). **At the end
+  of the form**: loop back to the top, or stop. The ↻/■ button at the end of
+  the strip flips it, even mid-session.
 - **Transitions** — enable/disable, sound, length, volume, and **Preview cue**
   to audition it. Sounds:
   - *Soft swell* (default) — stereo pink noise through a gently resonant
@@ -142,6 +152,7 @@ src/transitions.js  the transition cues (swell, reverse, chime) + reverb
 src/store.js        keeps the session's takes on this device (IndexedDB)
 src/wav.js          WAV encoding + share / download
 src/stateMachine.js phase-queue session driver (record/transition/playback)
+src/forms.js        the forms + the plan the strip draws (record vs replay)
 src/ui.js           DOM rendering, settings <-> config, event log
 src/main.js         orchestrator + iOS user-gesture handling
 ```
