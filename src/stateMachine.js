@@ -135,7 +135,7 @@ export class StateMachine {
   // Section label for a step. config.pattern is a string like "ABACA", or
   // null for free form (a brand new letter each step).
   _labelForStep(idx) {
-    return labelAt(this.config.pattern, idx);
+    return labelAt(this.config.pattern, idx, this.config.lowerCase);
   }
 
   // True when this step is the last of the form and the form should stop

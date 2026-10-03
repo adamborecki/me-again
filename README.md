@@ -100,7 +100,10 @@ paths).
   case letters and ticks for variants (`a a b a'`, `A B A''`); spaces are
   optional and iPhone's curly ’ works as a tick. Every different label is its
   own take (A, a and A' are three recordings); a label that comes back
-  replays its take. A, a and A' share a colour on the strip. **At the end
+  replays its take. A, a and A' share a colour on the strip; lower-case
+  tiles are hollow and dashed. **Letters: A B A · sections / a b a ·
+  phrases** switches every preset (and Free) to lower case, e.g. rounded
+  binary as ||: a :||: b a' :||. **At the end
   of the form**: loop back to the top, or stop. The ↻/■ button at the end of
   the strip flips it, even mid-session.
 - **Transitions** — enable/disable, sound, length, volume, and **Preview cue**

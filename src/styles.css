@@ -26,6 +26,8 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* `hidden` must always win over component display rules (.field is flex). */
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;

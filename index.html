@@ -75,6 +75,13 @@
         <span>Your pattern: letters, upper or lower case, ticks for variants (e.g. <code>a a b a'</code>)</span>
         <input type="text" id="customPattern" value="A A B A'" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" maxlength="80" />
       </label>
+      <div class="field" id="caseField">
+        <span>Letters</span>
+        <div class="seg" id="caseSeg">
+          <button class="seg-btn active" data-case="upper">A B A · sections</button>
+          <button class="seg-btn" data-case="lower">a b a · phrases</button>
+        </div>
+      </div>
       <div class="field">
         <span>At the end of the form</span>
         <div class="seg" id="endSeg">

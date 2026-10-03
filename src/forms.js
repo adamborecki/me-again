@@ -38,19 +38,30 @@ export const FORMS = [
   { id: 'custom',  name: 'Custom',         pattern: [],                blurb: "Type your own: upper/lower case, ticks (A')" },
 ];
 
+// Letter case for the presets: capitals for sections (A B A'), lower case
+// for phrases (a b a'). Custom patterns keep whatever case was typed.
+export const toCase = (label, lower) => (lower ? label[0].toLowerCase() + label.slice(1) : label);
+
 // The pattern for a form id (custom uses the typed text). null = free.
-export function patternFor(id, customText) {
+export function patternFor(id, customText, lower = false) {
   const f = FORMS.find((x) => x.id === id) || FORMS[0];
   if (f.id === 'custom') {
     const typed = parsePattern(customText);
     return typed.length ? typed : parsePattern(DEFAULT_CUSTOM);
   }
-  return f.pattern;
+  return f.pattern && f.pattern.map((t) => toCase(t, lower));
+}
+
+// How a form is written (repeat signs and all), in the chosen case.
+export function shownFor(f, lower = false) {
+  if (!f.shown) return null;
+  return lower ? f.shown.replace(/[A-Z]/g, (c) => c.toLowerCase()) : f.shown;
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-export const labelAt = (pattern, step) =>
-  pattern ? pattern[step % pattern.length] : LETTERS[step % LETTERS.length];
+// Free form (pattern null) makes up letters; `lower` picks their case.
+export const labelAt = (pattern, step, lower = false) =>
+  pattern ? pattern[step % pattern.length] : toCase(LETTERS[step % LETTERS.length], lower);
 
 // Hue per letter family, so A, a and A' all share A's colour.
 const HUES = [250, 170, 40, 330, 120, 200, 15, 290];
@@ -62,9 +73,10 @@ export const hueFor = (label) => HUES[LETTERS.indexOf(String(label)[0].toUpperCa
  * @param {Set<string>} recorded labels already recorded before `current`
  *                               (or before step 0 when idle)
  * @param {number} current       current step index, or -1 when idle
+ * @param {boolean} lower      free form only: make up lower-case letters
  * @returns {{step, label, isNew, status: 'done'|'now'|'next'}[]}
  */
-export function planSteps(pattern, recorded, current) {
+export function planSteps(pattern, recorded, current, lower = false) {
   const known = new Set(recorded);
   const out = [];
   const from = current < 0 ? 0 : current;
@@ -81,7 +93,7 @@ export function planSteps(pattern, recorded, current) {
   }
   // Steps before `from` in this window are done; their labels are known.
   for (let s = first; s <= last; s++) {
-    const label = labelAt(pattern, s);
+    const label = labelAt(pattern, s, lower);
     if (s < from) {
       out.push({ step: s, label, isNew: false, status: 'done' });
       continue;

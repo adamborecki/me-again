@@ -9,7 +9,7 @@
    that main.js fills in.
    =========================================================== */
 
-import { FORMS, DEFAULT_CUSTOM, cleanPattern, patternFor, labelAt, hueFor, planSteps } from './forms.js';
+import { FORMS, DEFAULT_CUSTOM, cleanPattern, patternFor, shownFor, toCase, labelAt, hueFor, planSteps } from './forms.js';
 
 const STATE_LABELS = {
   idle: 'Ready',
@@ -48,6 +48,7 @@ export class UI {
     // Where the session is, for the form strip and the "next" line.
     this.formId = 'free';
     this.endAction = 'loop';
+    this.lowerCase = false;
     this.track = { current: -1, isNewNow: false, phase: 'idle', label: null, complete: false };
     this.recordedLabels = new Set();
     this._cacheEls();
@@ -169,6 +170,16 @@ export class UI {
     });
 
     // Form: end action (segmented control + the toggle at the end of the strip)
+    document.querySelectorAll('#caseSeg .seg-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (this.running) return; // labels can't change under a running session
+        this.lowerCase = b.dataset.case === 'lower';
+        this._clearComplete();
+        this._renderFormPicker();
+        this.renderPlan();
+        this._persist();
+      });
+    });
     document.querySelectorAll('#endSeg .seg-btn').forEach((b) => {
       b.addEventListener('click', () => this._setEndAction(b.dataset.end));
     });
@@ -202,10 +213,6 @@ export class UI {
       b.title = f.blurb;
       const icon = document.createElement('span');
       icon.className = 'mini';
-      const letters = f.id === 'free' ? ['A', 'B', 'C'] : f.id === 'custom' ? [] : f.pattern;
-      for (const ch of letters) icon.append(miniTile(ch));
-      if (f.id === 'free') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '…' }));
-      if (f.id === 'custom') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '✎' }));
       const name = document.createElement('span');
       name.className = 'form-card-name';
       name.textContent = f.name;
@@ -233,6 +240,14 @@ export class UI {
 
   _renderFormPicker() {
     this.els.formGrid.querySelectorAll('.form-card').forEach((b) => {
+      // Mini icon in the current letter case.
+      const f = FORMS.find((x) => x.id === b.dataset.form);
+      const icon = b.querySelector('.mini');
+      icon.textContent = '';
+      const letters = f.id === 'free' ? ['A', 'B', 'C'] : f.id === 'custom' ? [] : f.pattern;
+      for (const ch of letters) icon.append(miniTile(f.id === 'custom' ? ch : toCase(ch, this.lowerCase)));
+      if (f.id === 'free') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '…' }));
+      if (f.id === 'custom') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '✎' }));
       const on = b.dataset.form === this.formId;
       b.classList.toggle('active', on);
       b.setAttribute('aria-checked', String(on));
@@ -240,6 +255,12 @@ export class UI {
     });
     this.els.customField.hidden = this.formId !== 'custom';
     this.els.customPattern.disabled = this.running;
+    // Custom patterns keep the case you type, so the switch doesn't apply.
+    this.$('caseField').hidden = this.formId === 'custom';
+    document.querySelectorAll('#caseSeg .seg-btn').forEach((b) => {
+      b.classList.toggle('active', (b.dataset.case === 'lower') === this.lowerCase);
+      b.disabled = this.running;
+    });
     document.querySelectorAll('#endSeg .seg-btn').forEach((b) =>
       b.classList.toggle('active', b.dataset.end === this.endAction));
   }
@@ -287,7 +308,8 @@ export class UI {
       playbackVolume: Number(this.$('playbackVolume').value),
       autoMaximize: this.$('autoMaximize').checked,
       form: this.formId,
-      pattern: patternFor(this.formId, this.els.customPattern.value),
+      pattern: patternFor(this.formId, this.els.customPattern.value, this.lowerCase),
+      lowerCase: this.lowerCase,
       endAction: this.endAction,
       transition: {
         enabled: this.$('transitionEnabled').checked,
@@ -370,13 +392,13 @@ export class UI {
 
     const form = FORMS.find((f) => f.id === cfg.form) || FORMS[0];
     this.els.formName.textContent = pattern
-      ? `${form.name} · ${form.shown || pattern.join(' ')}`
+      ? `${form.name} · ${shownFor(form, cfg.lowerCase) || pattern.join(' ')}`
       : 'Free · a new section every time';
     const pass = running && pattern ? Math.floor(t.current / pattern.length) + 1 : 0;
     this.els.roundInfo.textContent = pass > 1 ? `pass ${pass}` : '';
 
     // Strip
-    const steps = planSteps(pattern, known, running ? t.current : -1);
+    const steps = planSteps(pattern, known, running ? t.current : -1, cfg.lowerCase);
     const strip = this.els.strip;
     strip.textContent = '';
     for (const st of steps) {
@@ -412,11 +434,12 @@ export class UI {
       ? 'Loops back to the start at the end (tap to stop at the end instead)'
       : 'Stops at the end of the form (tap to loop instead)';
 
+    this._lower = cfg.lowerCase;
     this.els.nextInfo.textContent = this._nextText(pattern, known);
   }
 
   _describe(pattern, step, known) {
-    const label = labelAt(pattern, step);
+    const label = labelAt(pattern, step, this._lower);
     return known.has(label) ? `▶ replay ${label}` : `● record ${label}`;
   }
 
@@ -513,6 +536,7 @@ export class UI {
         _customSeconds: this.$('customSeconds').value,
         _customRepeats: this.$('customRepeats').value,
         _customPattern: this.els.customPattern.value,
+        _lowerCase: this.lowerCase,
       }));
     } catch (_) { /* storage may be unavailable; non-fatal */ }
   }
@@ -534,6 +558,7 @@ export class UI {
     set('playbackVolume', saved.playbackVolume);
     if (FORMS.some((f) => f.id === saved.form)) this.formId = saved.form;
     if (saved.endAction === 'stop' || saved.endAction === 'loop') this.endAction = saved.endAction;
+    this.lowerCase = saved._lowerCase === true;
     if (saved._customPattern) this.els.customPattern.value = cleanPattern(saved._customPattern) || DEFAULT_CUSTOM;
     this._renderFormPicker();
     if (saved.transition) {
