@@ -94,8 +94,13 @@ paths).
   into a limiter and then a soft clipper, so it stays loud without digital
   overs.
 - **Form** — picked from icon cards: Free (A B C …), Sections (ABCD),
-  Ternary (ABA), Song form (AABA), Rondo 5 (ABACA), Rondo 7 (ABACABA),
-  Rondo 7 with a new D (ABACADA), or Custom (type any letters). **At the end
+  Ternary (ABA), Rounded binary (||: A :||: B A' :||, played as
+  A A B A' B A'), Song form (AABA), Rondo 5 (ABACA), Rondo 7 (ABACABA),
+  Rondo 7 with a new D (ABACADA), or Custom. Custom takes upper and lower
+  case letters and ticks for variants (`a a b a'`, `A B A''`); spaces are
+  optional and iPhone's curly ’ works as a tick. Every different label is its
+  own take (A, a and A' are three recordings); a label that comes back
+  replays its take. A, a and A' share a colour on the strip. **At the end
   of the form**: loop back to the top, or stop. The ↻/■ button at the end of
   the strip flips it, even mid-session.
 - **Transitions** — enable/disable, sound, length, volume, and **Preview cue**
@@ -135,7 +140,7 @@ anything you want to keep.
 
 - Waveform display.
 - Metronome / count-in.
-- Smarter form engine (custom patterns).
+- Sonata and sonata-rondo forms.
 - Several saved sessions (only the latest is kept today).
 - Device input/output selection where browser support allows.
 

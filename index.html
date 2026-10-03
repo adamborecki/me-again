@@ -71,8 +71,8 @@
       <h2 class="panel-title">Form</h2>
       <div class="form-grid" id="formGrid" role="radiogroup" aria-label="Form"></div>
       <label class="field" id="customField" hidden>
-        <span>Your pattern (letters)</span>
-        <input type="text" id="customPattern" value="AABACA" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="40" />
+        <span>Your pattern: letters, upper or lower case, ticks for variants (e.g. <code>a a b a'</code>)</span>
+        <input type="text" id="customPattern" value="A A B A'" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" maxlength="80" />
       </label>
       <div class="field">
         <span>At the end of the form</span>
@@ -81,7 +81,7 @@
           <button class="seg-btn" data-end="stop">■ Stop</button>
         </div>
       </div>
-      <p class="note">Each new letter is recorded once. When it comes back, your saved take is replayed.</p>
+      <p class="note">Each different label is recorded once (A, a and A' are three takes). When a label comes back, its saved take is replayed.</p>
     </section>
 
     <!-- ===================== Settings ===================== -->

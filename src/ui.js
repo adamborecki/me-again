@@ -202,7 +202,7 @@ export class UI {
       b.title = f.blurb;
       const icon = document.createElement('span');
       icon.className = 'mini';
-      const letters = f.id === 'free' ? 'ABC' : f.id === 'custom' ? '' : f.pattern;
+      const letters = f.id === 'free' ? ['A', 'B', 'C'] : f.id === 'custom' ? [] : f.pattern;
       for (const ch of letters) icon.append(miniTile(ch));
       if (f.id === 'free') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '…' }));
       if (f.id === 'custom') icon.append(Object.assign(document.createElement('span'), { className: 'mini-more', textContent: '✎' }));
@@ -369,7 +369,9 @@ export class UI {
     if (running && t.isNewNow) known.delete(t.label);
 
     const form = FORMS.find((f) => f.id === cfg.form) || FORMS[0];
-    this.els.formName.textContent = pattern ? `${form.name} · ${pattern.split('').join(' ')}` : 'Free · a new section every time';
+    this.els.formName.textContent = pattern
+      ? `${form.name} · ${form.shown || pattern.join(' ')}`
+      : 'Free · a new section every time';
     const pass = running && pattern ? Math.floor(t.current / pattern.length) + 1 : 0;
     this.els.roundInfo.textContent = pass > 1 ? `pass ${pass}` : '';
 
@@ -379,7 +381,7 @@ export class UI {
     strip.textContent = '';
     for (const st of steps) {
       const li = document.createElement('li');
-      li.className = `tile is-${st.status}`;
+      li.className = `tile is-${st.status}${st.label.length > 1 ? ' is-long' : ''}`;
       li.style.setProperty('--hue', hueFor(st.label));
       const b = document.createElement('b');
       b.textContent = st.label;

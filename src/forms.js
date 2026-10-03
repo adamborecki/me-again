@@ -5,28 +5,46 @@
    you are, what's next).
    =========================================================== */
 
-export const FORMS = [
-  { id: 'free',    name: 'Free',      pattern: null,      blurb: 'A new section every time, forever' },
-  { id: 'simple',  name: 'Sections',  pattern: 'ABCD',    blurb: 'Four new sections' },
-  { id: 'ternary', name: 'Ternary',   pattern: 'ABA',     blurb: 'Statement, contrast, return' },
-  { id: 'song',    name: 'Song form', pattern: 'AABA',    blurb: '32-bar song form' },
-  { id: 'rondo',   name: 'Rondo 5',   pattern: 'ABACA',   blurb: '5-part rondo' },
-  { id: 'rondo7',  name: 'Rondo 7',   pattern: 'ABACABA', blurb: '7-part rondo' },
-  { id: 'rondoD',  name: 'Rondo 7 · new D', pattern: 'ABACADA', blurb: 'Rondo with three episodes' },
-  { id: 'custom',  name: 'Custom',    pattern: '',        blurb: 'Type your own' },
-];
+/* A pattern is a list of section labels ("tokens"): a letter, upper or
+   lower case, plus any number of ticks (primes). Every distinct token is its
+   own take: A, a and A' are each recorded once, and a token that comes back
+   replays its take. So rounded binary ||: A :||: B A' :|| plays as
+   A A B A' B A': record A, replay A, record B, record A', replay B, replay A'.
+   `shown` is how the form is written (with repeat signs) when that differs
+   from the played-out order. */
 
-export const DEFAULT_CUSTOM = 'AABACA';
+export const DEFAULT_CUSTOM = "A A B A'";
 
-// "a b-a c" -> "ABAC" (letters only, max 26 sections).
-export function cleanPattern(text) {
-  return String(text || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 26);
+// "aabA’ b" -> ["a", "a", "b", "A'", "b"]. Ticks may be ' ’ ′ (iPhone types ’)
+// and ″ counts as two. Anything else is ignored. Max 32 sections.
+export function parsePattern(text) {
+  const norm = String(text || '').replace(/[’′‘`´]/g, "'").replace(/″/g, "''");
+  return (norm.match(/[A-Za-z]'*/g) || []).slice(0, 32);
 }
+
+// Tidy display of typed text: "aabA’" -> "a a b A'".
+export const cleanPattern = (text) => parsePattern(text).join(' ');
+
+const p = parsePattern;
+export const FORMS = [
+  { id: 'free',    name: 'Free',           pattern: null,              blurb: 'A new section every time, forever' },
+  { id: 'simple',  name: 'Sections',       pattern: p('ABCD'),         blurb: 'Four new sections' },
+  { id: 'ternary', name: 'Ternary',        pattern: p('ABA'),          blurb: 'Statement, contrast, return' },
+  { id: 'rbinary', name: 'Rounded binary', pattern: p("A A B A' B A'"), shown: "||: A :||: B A' :||", blurb: 'Both halves repeated; A comes back varied' },
+  { id: 'song',    name: 'Song form',      pattern: p('AABA'),         blurb: '32-bar song form' },
+  { id: 'rondo',   name: 'Rondo 5',        pattern: p('ABACA'),        blurb: '5-part rondo' },
+  { id: 'rondo7',  name: 'Rondo 7',        pattern: p('ABACABA'),      blurb: '7-part rondo' },
+  { id: 'rondoD',  name: 'Rondo 7 · new D', pattern: p('ABACADA'),     blurb: 'Rondo with three episodes' },
+  { id: 'custom',  name: 'Custom',         pattern: [],                blurb: "Type your own: upper/lower case, ticks (A')" },
+];
 
 // The pattern for a form id (custom uses the typed text). null = free.
 export function patternFor(id, customText) {
   const f = FORMS.find((x) => x.id === id) || FORMS[0];
-  if (f.id === 'custom') return cleanPattern(customText) || DEFAULT_CUSTOM;
+  if (f.id === 'custom') {
+    const typed = parsePattern(customText);
+    return typed.length ? typed : parsePattern(DEFAULT_CUSTOM);
+  }
   return f.pattern;
 }
 
@@ -34,9 +52,9 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const labelAt = (pattern, step) =>
   pattern ? pattern[step % pattern.length] : LETTERS[step % LETTERS.length];
 
-// Hue per letter, so A is always the same colour everywhere.
+// Hue per letter family, so A, a and A' all share A's colour.
 const HUES = [250, 170, 40, 330, 120, 200, 15, 290];
-export const hueFor = (label) => HUES[LETTERS.indexOf(label) % HUES.length];
+export const hueFor = (label) => HUES[LETTERS.indexOf(String(label)[0].toUpperCase()) % HUES.length];
 
 /**
  * Steps to draw, with what happens at each.

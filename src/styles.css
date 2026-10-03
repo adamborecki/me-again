@@ -108,15 +108,16 @@ html, body {
 .form-name { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
 .round { font-size: 12px; color: var(--muted); }
 
-.strip-wrap { width: 100%; display: flex; align-items: center; gap: 8px; position: relative; }
+.strip-wrap { width: 100%; display: flex; align-items: center; gap: 4px; position: relative; }
 .strip {
-  list-style: none; margin: 0; padding: 8px 6px;
-  flex: 1; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  list-style: none; margin: 0; padding: 8px 5px;
+  flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
 }
 .strip::-webkit-scrollbar { display: none; }
 .tile {
   --hue: 250;
-  flex: 0 0 auto; width: 44px; height: 54px; border-radius: 12px;
+  /* shrink to fit ~8 sections on a phone; longer forms scroll */
+  flex: 1 1 0; min-width: 30px; max-width: 48px; height: 54px; border-radius: 12px;
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   background: hsl(var(--hue) 55% 50% / 0.16);
@@ -125,12 +126,13 @@ html, body {
   transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
 }
 .tile b { font-size: 20px; line-height: 1; }
+.tile.is-long b { font-size: 16px; letter-spacing: -0.02em; }
 .tile.is-done { opacity: 0.38; }
 .tile.is-now {
   background: hsl(var(--hue) 62% 52%); border-color: hsl(var(--hue) 80% 72%); color: #fff;
   transform: scale(1.08); box-shadow: 0 6px 18px hsl(var(--hue) 70% 40% / 0.45);
 }
-.tile.is-more { width: 28px; border: none; background: none; color: var(--muted); font-size: 18px; }
+.tile.is-more { flex: 0 0 28px; min-width: 28px; border: none; background: none; color: var(--muted); font-size: 18px; }
 .tile-progress {
   position: absolute; left: 0; bottom: 0; height: 4px; width: 0%;
   background: rgba(255, 255, 255, 0.85); transition: width 0.1s linear;
@@ -147,7 +149,7 @@ html, body {
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 
 .end-toggle {
-  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
   border: 1px dashed var(--line); background: transparent; color: var(--muted);
   font-size: 18px; cursor: pointer;
 }
@@ -237,7 +239,7 @@ html, body {
 .mini { display: flex; gap: 1px; align-items: center; min-height: 16px; flex-wrap: wrap; justify-content: center; }
 .mini-tile {
   --hue: 250;
-  width: 11px; height: 15px; border-radius: 3px;
+  min-width: 11px; height: 15px; padding: 0 1px; border-radius: 3px;
   display: grid; place-items: center; font-size: 8px; font-weight: 800; color: #fff;
   background: hsl(var(--hue) 60% 52%);
 }
