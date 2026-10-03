@@ -399,6 +399,28 @@ input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; }
 .saved-session .row .btn { flex: 1; }
 .saved-session #restoreSession { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* ---------- warnings + dialogs ---------- */
+.warn {
+  width: 100%; margin: 0; padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,77,109,0.14); border: 1px solid var(--danger); color: #ffd5dd;
+  font-size: 14px; line-height: 1.4;
+}
+dialog.ask {
+  width: min(92vw, 380px); padding: 20px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--bg-elev); color: var(--text);
+  box-shadow: var(--shadow);
+}
+dialog.ask::backdrop { background: rgba(5, 6, 15, 0.6); }
+dialog.ask h3 { margin: 0 0 8px; font-size: 18px; }
+dialog.ask p { margin: 0 0 16px; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.ask-buttons { display: flex; flex-direction: column; gap: 8px; }
+.ask-btn {
+  min-height: 46px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg-elev-2); color: var(--text);
+}
+.ask-btn.primary { background: #6c7bff; border-color: #6c7bff; color: #fff; }
+.ask-btn.danger { background: rgba(255,77,109,0.14); border-color: var(--danger); color: #ffd5dd; }
+
 @media (prefers-reduced-motion: reduce) {
   *, .stage::before { animation: none !important; transition: none !important; }
 }

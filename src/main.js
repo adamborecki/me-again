@@ -10,6 +10,7 @@ import { StateMachine } from './stateMachine.js';
 import { UI } from './ui.js';
 import { saveTake, clearTakes, loadTakes, toAudioBuffer } from './store.js';
 import { wavFromBuffer, saveFiles, stamp } from './wav.js';
+import { ask } from './ask.js';
 
 const ui = new UI();
 const audio = new AudioEngine();
@@ -31,14 +32,28 @@ let micReady = false;
 /* ---------------- Start flow (the user gesture) ---------------- */
 
 ui.onStart = async () => {
+  // A saved session is waiting: never replace it without asking.
+  if (pendingSaved) {
+    const labels = pendingSaved.map((t) => t.label).join(' ');
+    const choice = await ask({
+      title: 'Restore your last session?',
+      body: `Your last session (${labels}) is saved on this device. Starting fresh deletes it.`,
+      buttons: [
+        { label: 'Restore & start', value: 'restore', kind: 'primary' },
+        { label: 'Start fresh (delete it)', value: 'fresh', kind: 'danger', confirm: true },
+        { label: 'Cancel', value: null },
+      ],
+    });
+    if (!choice) return;
+    if (choice === 'restore') {
+      if (!restoreSaved()) return; // never start (and overwrite) if restore failed
+    } else forgetSaved();
+  }
   try {
-    // 1) Unlock/resume AudioContext synchronously inside the gesture.
+    // 1) Unlock/resume AudioContext (needs the tap on iOS).
     await audio.init();
 
     // 2) Ask for the mic the first time; reuse the stream afterwards.
-    // Starting without restoring = starting fresh (the saved session is
-    // replaced once the first new take is saved).
-    if (pendingSaved) ui.showSavedSession(null);
 
     const cfg = ui.readConfig();
     audio.setOutputGain(cfg.playbackVolume);
@@ -96,7 +111,29 @@ ui.onPanic = () => {
 
 /* ---------------- Session buttons ---------------- */
 
-ui.onClearRecordings = () => {
+// Deleting takes always asks first, and offers to export them.
+async function confirmDelete(what) {
+  const labels = [...machine.recordings.keys()];
+  if (!labels.length && !pendingSaved) return true; // nothing to lose
+  const list = labels.length ? labels : pendingSaved.map((t) => t.label);
+  const choice = await ask({
+    title: `${what}?`,
+    body: `This deletes ${list.length} take${list.length === 1 ? '' : 's'} (${list.join(' ')}) from this device. It can't be undone.`,
+    buttons: [
+      { label: 'Export first', value: 'export' },
+      { label: 'Delete', value: 'delete', kind: 'danger', confirm: true },
+      { label: 'Cancel', value: null },
+    ],
+  });
+  if (choice === 'export') {
+    await exportTakes(labels.length ? [...machine.recordings.entries()] : savedEntries());
+    return false; // they can delete after checking the files
+  }
+  return choice === 'delete';
+}
+
+ui.onClearRecordings = async () => {
+  if (!(await confirmDelete('Clear all recordings'))) return;
   machine.clearRecordings();
   forgetSaved();
 };
@@ -104,7 +141,8 @@ ui.onClearRecordings = () => {
 // Live playback-volume changes (slider) — apply if the context exists yet.
 ui.onPlaybackVolume = (v) => { if (audio.ctx) audio.setOutputGain(v); };
 
-ui.onResetSession = () => {
+ui.onResetSession = async () => {
+  if (!(await confirmDelete('Reset the session'))) return;
   machine.resetSession();
   forgetSaved();
   ui.setRunning(false);
@@ -150,12 +188,16 @@ let storeQueue = Promise.resolve(); // keep IndexedDB writes in order
 function keepTake({ label, buffer, order }) {
   storeQueue = storeQueue.then(async () => {
     if (!storeOwned) {
+      // Only reachable if a saved session was never offered (Start asks).
       await clearTakes();
       storeOwned = true;
       pendingSaved = null;
       ui.showSavedSession(null);
     }
-    await saveTake(label, buffer, order);
+    const ok = await saveTake(label, buffer, order);
+    if (ok === null) {
+      ui.warn(`Couldn't keep ${label} on this device (storage full or blocked). Export to keep it.`);
+    }
   });
 }
 
@@ -172,8 +214,15 @@ loadTakes().then((takes) => {
   ui.showSavedSession(takes);
 });
 
-ui.onRestoreSession = () => {
-  if (!pendingSaved || machine.running) return;
+ui.onRestoreSession = () => restoreSaved();
+
+function savedEntries() {
+  return pendingSaved ? pendingSaved.map((t) => [t.label, toAudioBuffer(t)]) : [];
+}
+
+// Returns true if the saved takes are now loaded.
+function restoreSaved() {
+  if (!pendingSaved || machine.running) return false;
   try {
     const takes = pendingSaved.map((t) => ({ label: t.label, buffer: toAudioBuffer(t) }));
     machine.restore(takes);
@@ -181,20 +230,25 @@ ui.onRestoreSession = () => {
     pendingSaved = null;
     ui.showSavedSession(null);
     ui.addLog(`Restored ${takes.map((t) => t.label).join(' ')}. Start replays them, then records what's next.`);
+    return true;
   } catch (err) {
     ui.showError(`Couldn't restore the saved takes: ${err.message || err}`);
+    return false;
   }
-};
+}
 
-ui.onDismissSession = () => forgetSaved();
+ui.onDismissSession = async () => {
+  if (await confirmDelete('Delete the saved session')) forgetSaved();
+};
 
 // Loop / Stop at the end of the form can change mid-session.
 ui.onEndAction = (action) => { if (machine.config) machine.config.endAction = action; };
 
 // One WAV per section. Encoding is synchronous so the share sheet still
 // counts as part of the tap (iOS requires that).
-ui.onExport = async () => {
-  const takes = [...machine.recordings.entries()];
+ui.onExport = () => exportTakes([...machine.recordings.entries()]);
+
+async function exportTakes(takes) {
   if (!takes.length) return;
   const when = stamp();
   const files = takes.map(([label, buf]) =>
@@ -202,7 +256,7 @@ ui.onExport = async () => {
   const how = await saveFiles(files);
   if (how === 'shared') ui.addLog(`Shared ${files.length} take${files.length === 1 ? '' : 's'}`);
   else if (how === 'downloaded') ui.addLog(`Downloaded ${files.length} WAV file${files.length === 1 ? '' : 's'}`);
-};
+}
 
 /* ---------------- Safety: stop audio if tab is hidden ---------------- */
 // iOS can suspend audio when backgrounded; make the stop explicit so the

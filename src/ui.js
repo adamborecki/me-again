@@ -449,6 +449,14 @@ export class UI {
     this._renderFormPicker();
   }
 
+  // A warning that must not be missed (the log is folded away).
+  warn(message) {
+    const el = this.$('warnLine');
+    el.textContent = `⚠ ${message}`;
+    el.hidden = false;
+    this.addLog(`⚠ ${message}`);
+  }
+
   addLog(message) {
     const li = document.createElement('li');
     const ts = new Date().toLocaleTimeString([], { hour12: false });
